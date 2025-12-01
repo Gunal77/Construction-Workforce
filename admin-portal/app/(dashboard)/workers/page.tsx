@@ -40,7 +40,7 @@ export default function WorkersPage() {
       const response = await employeesAPI.getAll();
       setWorkers(response.employees || []);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch workers');
+      setError(err.response?.data?.message || 'Failed to fetch staffs');
     } finally {
       setLoading(false);
     }
@@ -56,7 +56,7 @@ export default function WorkersPage() {
       setFormData({ name: '', email: '', phone: '', role: '' });
       fetchWorkers();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create worker');
+      setError(err.response?.data?.message || 'Failed to create staff');
     }
   };
 
@@ -69,7 +69,7 @@ export default function WorkersPage() {
       setSelectedWorker(null);
       fetchWorkers();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to delete worker');
+      setError(err.response?.data?.message || 'Failed to delete staff');
     }
   };
 
@@ -127,15 +127,15 @@ export default function WorkersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Workers</h1>
-          <p className="text-gray-600 mt-1">Manage construction workers</p>
+          <h1 className="text-2xl font-bold text-gray-800">Staffs</h1>
+          <p className="text-gray-600 mt-1">Manage construction staff</p>
         </div>
         <button
           onClick={() => setIsAddModalOpen(true)}
           className="flex items-center space-x-2 bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors"
         >
           <Plus className="h-5 w-5" />
-          <span>Add Worker</span>
+          <span>Add Staff</span>
         </button>
       </div>
 
@@ -180,18 +180,18 @@ export default function WorkersPage() {
       {/* Pagination Info */}
       {filteredAndSortedWorkers.length > 0 && (
         <p className="text-sm text-gray-600">
-          Showing {startIndex} - {endIndex} of {filteredAndSortedWorkers.length} workers
+          Showing {startIndex} - {endIndex} of {filteredAndSortedWorkers.length} staffs
         </p>
       )}
 
       {/* Workers Grid */}
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500">Loading workers...</div>
+          <div className="text-gray-500">Loading staffs...</div>
         </div>
       ) : paginatedWorkers.length === 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-          <p className="text-gray-500">No workers found</p>
+          <p className="text-gray-500">No staffs found</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -236,7 +236,7 @@ export default function WorkersPage() {
           setFormData({ name: '', email: '', phone: '', role: '' });
           setError('');
         }}
-        title="Add Worker"
+        title="Add Staff"
       >
         <form onSubmit={handleAddWorker} className="space-y-4">
           {error && (
@@ -251,7 +251,7 @@ export default function WorkersPage() {
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             required
-            placeholder="Enter worker name"
+            placeholder="Enter staff name"
           />
 
           <Input
@@ -270,13 +270,43 @@ export default function WorkersPage() {
             placeholder="Enter phone number"
           />
 
-          <Input
-            label="Department"
-            type="text"
-            value={formData.role}
-            onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-            placeholder="Enter department"
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Role *
+            </label>
+            <select
+              value={formData.role}
+              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+              required
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+            >
+              <option value="">Select Role</option>
+              <optgroup label="Senior Resident Engineer (SRE)">
+                <option value="SRE(C&S)">SRE - Civil & Structural</option>
+                <option value="SRE(M&E)">SRE - Mechanical & Electrical</option>
+                <option value="SRE(C&S/M&E)">SRE - Civil & Structural / Mechanical & Electrical</option>
+              </optgroup>
+              <optgroup label="Resident Engineer (RE)">
+                <option value="RE(C&S)">RE - Civil & Structural</option>
+                <option value="RE(M&E)">RE - Mechanical & Electrical</option>
+                <option value="RE(C&S/M&E)">RE - Civil & Structural / Mechanical & Electrical</option>
+              </optgroup>
+              <optgroup label="Resident Technical Officer (RTO)">
+                <option value="RTO(C&S)">RTO - Civil & Structural</option>
+                <option value="RTO(M&E)">RTO - Mechanical & Electrical</option>
+                <option value="RTO(Archi)">RTO - Architectural</option>
+              </optgroup>
+              <optgroup label="Stand-in RTO">
+                <option value="Stand-in RTO(C&S)">Stand-in RTO - Civil & Structural</option>
+                <option value="Stand-in RTO(M&E)">Stand-in RTO - Mechanical & Electrical</option>
+                <option value="Stand-in RTO(Archi)">Stand-in RTO - Architectural</option>
+              </optgroup>
+              <optgroup label="Other">
+                <option value="RA">Resident Architect (RA)</option>
+                <option value="Other">Other</option>
+              </optgroup>
+            </select>
+          </div>
 
           <div className="flex justify-end space-x-3 pt-4">
             <button
@@ -294,7 +324,7 @@ export default function WorkersPage() {
               type="submit"
               className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
             >
-              Add Worker
+              Add Staff
             </button>
           </div>
         </form>
@@ -307,7 +337,7 @@ export default function WorkersPage() {
           setIsDeleteModalOpen(false);
           setSelectedWorker(null);
         }}
-        title="Delete Worker"
+        title="Delete Staff"
         size="sm"
       >
         <div className="space-y-4">

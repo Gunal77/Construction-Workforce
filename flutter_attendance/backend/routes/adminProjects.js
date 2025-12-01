@@ -26,6 +26,89 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /admin/projects/:id - Get project by ID with supervisors
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ message: 'Project ID is required' });
+    }
+
+    // Get project
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (projectError) {
+      return res.status(500).json({ message: projectError.message || 'Failed to fetch project' });
+    }
+
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // Get assigned supervisors
+    // First, get the relation records
+    const { data: supervisorRelations, error: relationsError } = await supabase
+      .from('supervisor_projects_relation')
+      .select('supervisor_id, assigned_at')
+      .eq('project_id', id);
+
+    if (relationsError) {
+      console.error('Error fetching supervisor relations:', relationsError);
+      return res.json({ 
+        project,
+        supervisors: []
+      });
+    }
+
+    // If no relations, return empty supervisors array
+    if (!supervisorRelations || supervisorRelations.length === 0) {
+      return res.json({ 
+        project,
+        supervisors: []
+      });
+    }
+
+    // Get supervisor IDs
+    const supervisorIds = supervisorRelations.map(rel => rel.supervisor_id);
+
+    // Fetch supervisor details
+    const { data: supervisorsData, error: supervisorsError } = await supabase
+      .from('supervisors')
+      .select('id, name, email, phone')
+      .in('id', supervisorIds);
+
+    if (supervisorsError) {
+      console.error('Error fetching supervisors:', supervisorsError);
+      return res.json({ 
+        project,
+        supervisors: []
+      });
+    }
+
+    // Combine supervisor data with assigned_at from relations
+    const supervisors = (supervisorsData || []).map(supervisor => {
+      const relation = supervisorRelations.find(rel => rel.supervisor_id === supervisor.id);
+      return {
+        ...supervisor,
+        assignedAt: relation?.assigned_at || null,
+      };
+    });
+
+    return res.json({ 
+      project,
+      supervisors: supervisors || []
+    });
+  } catch (err) {
+    console.error('Get project error', err);
+    return res.status(500).json({ message: 'Error fetching project' });
+  }
+});
+
 // POST /admin/projects - Add new project
 router.post('/', async (req, res) => {
   try {
@@ -145,6 +228,137 @@ router.delete('/:id', async (req, res) => {
   } catch (err) {
     console.error('Delete project error', err);
     return res.status(500).json({ message: 'Error deleting project' });
+  }
+});
+
+// POST /admin/projects/:id/assign-supervisor - Assign supervisor to project
+router.post('/:id/assign-supervisor', async (req, res) => {
+  try {
+    const { id: projectId } = req.params;
+    const { supervisor_id } = req.body;
+
+    if (!projectId) {
+      return res.status(400).json({ message: 'Project ID is required' });
+    }
+
+    if (!supervisor_id) {
+      return res.status(400).json({ message: 'Supervisor ID is required' });
+    }
+
+    // Verify project exists
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', projectId)
+      .maybeSingle();
+
+    if (projectError || !project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // Verify supervisor exists
+    const { data: supervisor, error: supervisorError } = await supabase
+      .from('supervisors')
+      .select('id')
+      .eq('id', supervisor_id)
+      .maybeSingle();
+
+    if (supervisorError || !supervisor) {
+      return res.status(404).json({ message: 'Supervisor not found' });
+    }
+
+    // Assign supervisor to project (using ON CONFLICT to handle duplicates)
+    const { data, error } = await supabase
+      .from('supervisor_projects_relation')
+      .upsert(
+        {
+          supervisor_id,
+          project_id: projectId,
+        },
+        {
+          onConflict: 'supervisor_id,project_id',
+        }
+      )
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ message: error.message || 'Failed to assign supervisor to project' });
+    }
+
+    return res.json({ 
+      relation: data, 
+      message: 'Supervisor assigned to project successfully' 
+    });
+  } catch (err) {
+    console.error('Assign supervisor error', err);
+    return res.status(500).json({ message: 'Error assigning supervisor to project' });
+  }
+});
+
+// POST /admin/projects/assign-all-supervisors - Assign all supervisors to all projects
+router.post('/assign-all-supervisors', async (req, res) => {
+  try {
+    // Get all projects
+    const { data: projects, error: projectsError } = await supabase
+      .from('projects')
+      .select('id');
+
+    if (projectsError) {
+      return res.status(500).json({ message: 'Failed to fetch projects' });
+    }
+
+    // Get all supervisors
+    const { data: supervisors, error: supervisorsError } = await supabase
+      .from('supervisors')
+      .select('id');
+
+    if (supervisorsError) {
+      return res.status(500).json({ message: 'Failed to fetch supervisors' });
+    }
+
+    if (!projects || projects.length === 0) {
+      return res.status(400).json({ message: 'No projects found' });
+    }
+
+    if (!supervisors || supervisors.length === 0) {
+      return res.status(400).json({ message: 'No supervisors found' });
+    }
+
+    // Assign all supervisors to all projects
+    const relations = [];
+    for (const project of projects) {
+      for (const supervisor of supervisors) {
+        relations.push({
+          supervisor_id: supervisor.id,
+          project_id: project.id,
+        });
+      }
+    }
+
+    // Insert all relations (using upsert to handle duplicates)
+    const { data: inserted, error: insertError } = await supabase
+      .from('supervisor_projects_relation')
+      .upsert(relations, {
+        onConflict: 'supervisor_id,project_id',
+      })
+      .select();
+
+    if (insertError) {
+      return res.status(500).json({ 
+        message: insertError.message || 'Failed to assign supervisors to projects' 
+      });
+    }
+
+    return res.json({ 
+      message: `Successfully assigned ${supervisors.length} supervisor(s) to ${projects.length} project(s)`,
+      total_relations: inserted?.length || relations.length,
+      supervisors_count: supervisors.length,
+      projects_count: projects.length,
+    });
+  } catch (err) {
+    console.error('Assign all supervisors error', err);
+    return res.status(500).json({ message: 'Error assigning supervisors to projects' });
   }
 });
 

@@ -13,6 +13,7 @@ export default function ProjectDetailsPage() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [assignedWorkers, setAssignedWorkers] = useState<Employee[]>([]);
+  const [assignedSupervisors, setAssignedSupervisors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -26,7 +27,29 @@ export default function ProjectDetailsPage() {
   const fetchProjectDetails = async () => {
     try {
       setLoading(true);
-      // Since backend doesn't have GET /:id, fetch all and filter
+      setError('');
+      
+      // Try to fetch by ID first (new endpoint includes supervisors)
+      try {
+        const response = await projectsAPI.getById(projectId);
+        console.log('Project details response:', response);
+        if (response.project) {
+          setProject(response.project);
+          // Set supervisors if included in response
+          if (response.supervisors) {
+            console.log('Found supervisors:', response.supervisors);
+            setAssignedSupervisors(response.supervisors);
+          } else {
+            console.log('No supervisors in response');
+            setAssignedSupervisors([]);
+          }
+          return;
+        }
+      } catch (idErr) {
+        console.log('Fetch by ID failed, trying fetch all:', idErr);
+      }
+      
+      // Fallback: fetch all and filter
       const response = await projectsAPI.getAll();
       const projects = response.projects || [];
       const foundProject = projects.find((p: Project) => p.id === projectId);
@@ -71,18 +94,9 @@ export default function ProjectDetailsPage() {
     }).format(num);
   };
 
-  // Get supervisors from assigned workers
-  const supervisors = assignedWorkers.filter((worker) =>
-    worker.role?.toLowerCase().includes('supervisor') || 
-    worker.role?.toLowerCase().includes('super')
-  );
-
   // Get regular workers (non-supervisors)
-  const regularWorkers = assignedWorkers.filter(
-    (worker) =>
-      !worker.role?.toLowerCase().includes('supervisor') &&
-      !worker.role?.toLowerCase().includes('super')
-  );
+  // Note: Supervisors are now fetched separately from the supervisors table
+  const regularWorkers = assignedWorkers;
 
   if (loading) {
     return (
@@ -254,7 +268,7 @@ export default function ProjectDetailsPage() {
             <div>
               <p className="text-sm text-gray-600">Supervisors</p>
               <p className="text-2xl font-bold text-blue-600">
-                {supervisors.length}
+                {assignedSupervisors.length}
               </p>
             </div>
             <div>
@@ -295,24 +309,44 @@ export default function ProjectDetailsPage() {
         </Card>
 
         {/* Assigned Supervisors */}
-        <Card title={`Assigned Supervisors ${supervisors.length}`}>
-          {supervisors.length === 0 ? (
-            <p className="text-sm text-gray-500">No supervisors assigned to this project</p>
+        <Card title={`Assigned Supervisors (${assignedSupervisors.length})`}>
+          {assignedSupervisors.length === 0 ? (
+            <div className="text-center py-8">
+              <UserCog className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-sm text-gray-500">No supervisors assigned to this project</p>
+              <p className="text-xs text-gray-400 mt-2">
+                Use the API endpoint or SQL script to assign supervisors
+              </p>
+            </div>
           ) : (
             <div className="space-y-3">
-              {supervisors.map((supervisor) => (
+              {assignedSupervisors.map((supervisor: any) => (
                 <div
                   key={supervisor.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-100"
                 >
-                  <div>
-                    <p className="font-medium text-gray-900">{supervisor.name}</p>
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <UserCog className="h-4 w-4 text-blue-600" />
+                      <p className="font-medium text-gray-900">{supervisor.name}</p>
+                    </div>
                     {supervisor.email && (
-                      <p className="text-sm text-gray-600">{supervisor.email}</p>
+                      <p className="text-sm text-gray-600 flex items-center space-x-1">
+                        <span>📧</span>
+                        <span>{supervisor.email}</span>
+                      </p>
                     )}
-                    <p className="text-sm text-gray-500">
-                      Managing {regularWorkers.length} worker(s)
-                    </p>
+                    {supervisor.phone && (
+                      <p className="text-sm text-gray-600 flex items-center space-x-1">
+                        <span>📞</span>
+                        <span>{supervisor.phone}</span>
+                      </p>
+                    )}
+                    {supervisor.assignedAt && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Assigned: {new Date(supervisor.assignedAt).toLocaleDateString()}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}

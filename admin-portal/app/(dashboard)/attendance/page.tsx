@@ -177,7 +177,7 @@ export default function AttendancePage() {
   const columns = [
     {
       key: 'worker',
-      header: 'Worker',
+      header: 'Staff',
       render: (item: AttendanceRecord) => {
         const worker = workers.find((w) => w.id === item.user_id);
         return (
@@ -272,7 +272,7 @@ export default function AttendancePage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-800">Attendance</h1>
-        <p className="text-gray-600 mt-1">Track worker attendance</p>
+        <p className="text-gray-600 mt-1">Track staff attendance</p>
       </div>
 
       {/* Summary Cards */}
@@ -306,7 +306,7 @@ export default function AttendancePage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by worker name, email, or project..."
+              placeholder="Search by staff name, email, or project..."
               className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
             />
           </div>
@@ -392,7 +392,7 @@ export default function AttendancePage() {
 
           <div className="w-full">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Worker *
+              Staff *
             </label>
             <select
               value={formData.user_id}
@@ -402,7 +402,7 @@ export default function AttendancePage() {
               required
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
             >
-              <option value="">Select Worker</option>
+              <option value="">Select Staff</option>
               {workers.map((worker) => (
                 <option key={worker.id} value={worker.id}>
                   {worker.name} {worker.email ? `(${worker.email})` : ''}

@@ -12,7 +12,7 @@ export default function WorkerCard({ worker, onClick }: WorkerCardProps) {
   // Determine role tag
   const roleTag = worker.role?.toLowerCase().includes('supervisor') 
     ? 'supervisor' 
-    : 'worker';
+    : 'staff';
 
   return (
     <div
@@ -31,6 +31,13 @@ export default function WorkerCard({ worker, onClick }: WorkerCardProps) {
           {roleTag}
         </span>
       </div>
+      {worker.role && (
+        <div className="mb-2">
+          <span className="text-xs font-medium text-primary-600 bg-primary-50 px-2 py-1 rounded">
+            {worker.role}
+          </span>
+        </div>
+      )}
       <div className="space-y-2">
         {worker.email && (
           <div className="flex items-center space-x-2 text-sm text-gray-600">

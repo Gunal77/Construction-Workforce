@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { employeesAPI, attendanceAPI, Employee, AttendanceRecord } from '@/lib/api';
+import { employeesAPI, attendanceAPI, projectsAPI, Employee, AttendanceRecord, Project } from '@/lib/api';
 import Card from '@/components/Card';
 import Table from '@/components/Table';
 import {
@@ -15,7 +15,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { ArrowLeft, Mail, Phone, Briefcase, Calendar } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Briefcase, Calendar, MapPin, Clock, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 
 export default function WorkerDetailsPage() {
   const params = useParams();
@@ -24,32 +24,86 @@ export default function WorkerDetailsPage() {
 
   const [worker, setWorker] = useState<Employee | null>(null);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [assignedProject, setAssignedProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (workerId) {
       fetchWorkerDetails();
-      fetchAttendanceHistory();
     }
   }, [workerId]);
+
+  // Fetch attendance after worker details are loaded (so we have email)
+  useEffect(() => {
+    if (worker) {
+      fetchAttendanceHistory();
+    }
+  }, [worker]);
 
   const fetchWorkerDetails = async () => {
     try {
       setLoading(true);
-      // Since backend doesn't have GET /:id, fetch all and filter
+      setError('');
+      
+      // Try to fetch by ID first
+      try {
+        const response = await employeesAPI.getById(workerId);
+        if (response.employee) {
+          setWorker(response.employee);
+          // Fetch project details if project_id exists
+          if (response.employee.project_id) {
+            try {
+              const projectResponse = await projectsAPI.getById(response.employee.project_id);
+              if (projectResponse.project) {
+                setAssignedProject(projectResponse.project);
+              }
+            } catch (projectErr) {
+              console.error('Error fetching project:', projectErr);
+              // If project fetch fails, use the project info from employee if available
+              if (response.employee.projects) {
+                setAssignedProject(response.employee.projects as any);
+              }
+            }
+          } else if (response.employee.projects) {
+            // Use project info from employee object if available
+            setAssignedProject(response.employee.projects as any);
+          }
+          return;
+        }
+      } catch (idErr) {
+        console.log('Fetch by ID failed, trying fetch all:', idErr);
+      }
+      
+      // Fallback: fetch all and filter
       const response = await employeesAPI.getAll();
       const workers = response.employees || [];
       const foundWorker = workers.find((w: Employee) => w.id === workerId);
       
       if (foundWorker) {
         setWorker(foundWorker);
+        // Fetch project details if project_id exists
+        if (foundWorker.project_id) {
+          try {
+            const projectResponse = await projectsAPI.getById(foundWorker.project_id);
+            if (projectResponse.project) {
+              setAssignedProject(projectResponse.project);
+            }
+          } catch (projectErr) {
+            console.error('Error fetching project:', projectErr);
+            if (foundWorker.projects) {
+              setAssignedProject(foundWorker.projects as any);
+            }
+          }
+        } else if (foundWorker.projects) {
+          setAssignedProject(foundWorker.projects as any);
+        }
       } else {
-        setError('Worker not found');
+        setError('Staff not found');
       }
     } catch (err: any) {
-      console.error('Error fetching worker:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to fetch worker details';
+      console.error('Error fetching staff:', err);
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to fetch staff details';
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -58,36 +112,65 @@ export default function WorkerDetailsPage() {
 
   const fetchAttendanceHistory = async () => {
     try {
-      // First get worker to get their email for filtering
-      const workerResponse = await employeesAPI.getById(workerId);
-      const worker = workerResponse.employee;
+      setError('');
+      let records: AttendanceRecord[] = [];
       
+      // IMPORTANT: attendance_logs.user_id references users.id, NOT employees.id
+      // So we must filter by email, not by employee ID
       if (worker?.email) {
-        const response = await attendanceAPI.getAll({
-          user: worker.email,
-          sortBy: 'check_in_time',
-          sortOrder: 'desc',
-        });
-        // Filter by user_id on client side as well to ensure accuracy
-        const filtered = (response.records || []).filter(
-          (record: AttendanceRecord) => record.user_id === workerId
-        );
-        setAttendanceRecords(filtered);
+        try {
+          console.log(`Fetching attendance for email: ${worker.email}`);
+          // Fetch by email - the backend filters by users.email
+          const response = await attendanceAPI.getAll({
+            user: worker.email,
+            sortBy: 'check_in_time',
+            sortOrder: 'desc',
+          });
+          records = response.records || [];
+          console.log(`Backend returned ${records.length} records for email ${worker.email}`);
+          
+          // Verify the records match the email (backend should already filter, but double-check)
+          records = records.filter(
+            (record: AttendanceRecord) => 
+              record.user_email?.toLowerCase() === worker.email?.toLowerCase()
+          );
+          console.log(`After email verification: ${records.length} records`);
+        } catch (err1) {
+          console.error('Error fetching attendance by email:', err1);
+          // Fallback: fetch all and filter by email
+          try {
+            console.log('Trying fallback: fetch all attendance');
+            const response = await attendanceAPI.getAll({
+              sortBy: 'check_in_time',
+              sortOrder: 'desc',
+            });
+            const allRecords = response.records || [];
+            console.log(`Fetched ${allRecords.length} total records`);
+            
+            // Filter by email (user_email from the joined users table)
+            records = allRecords.filter(
+              (record: AttendanceRecord) => 
+                record.user_email?.toLowerCase() === worker.email?.toLowerCase()
+            );
+            console.log(`Filtered to ${records.length} records matching email ${worker.email}`);
+          } catch (err2) {
+            console.error('Error fetching all attendance:', err2);
+            throw err2;
+          }
+        }
       } else {
-        // If no email, fetch all and filter by user_id
-        const response = await attendanceAPI.getAll({
-          sortBy: 'check_in_time',
-          sortOrder: 'desc',
-        });
-        const filtered = (response.records || []).filter(
-          (record: AttendanceRecord) => record.user_id === workerId
-        );
-        setAttendanceRecords(filtered);
+        console.warn('Worker has no email, cannot fetch attendance records');
+        setAttendanceRecords([]);
+        return;
       }
+      
+      console.log(`Final: ${records.length} attendance records for worker ${worker?.name} (${worker?.email})`);
+      setAttendanceRecords(records);
     } catch (err: any) {
       console.error('Error fetching attendance:', err);
-    } finally {
-      setLoading(false);
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to fetch attendance records';
+      setError(errorMessage);
+      setAttendanceRecords([]);
     }
   };
 
@@ -120,18 +203,43 @@ export default function WorkerDetailsPage() {
 
   const attendanceColumns = [
     {
+      key: 'date',
+      header: 'Date',
+      render: (item: AttendanceRecord) => (
+        <div className="flex items-center space-x-2">
+          <Calendar className="h-4 w-4 text-gray-400" />
+          <span>{new Date(item.check_in_time).toLocaleDateString()}</span>
+        </div>
+      ),
+    },
+    {
       key: 'check_in_time',
       header: 'Check In',
-      render: (item: AttendanceRecord) =>
-        new Date(item.check_in_time).toLocaleString(),
+      render: (item: AttendanceRecord) => (
+        <div className="flex items-center space-x-2">
+          <CheckCircle className="h-4 w-4 text-green-500" />
+          <div>
+            <p className="font-medium">{new Date(item.check_in_time).toLocaleTimeString()}</p>
+            <p className="text-xs text-gray-500">{new Date(item.check_in_time).toLocaleDateString()}</p>
+          </div>
+        </div>
+      ),
     },
     {
       key: 'check_out_time',
       header: 'Check Out',
       render: (item: AttendanceRecord) =>
-        item.check_out_time
-          ? new Date(item.check_out_time).toLocaleString()
-          : <span className="text-gray-400">Not checked out</span>,
+        item.check_out_time ? (
+          <div className="flex items-center space-x-2">
+            <XCircle className="h-4 w-4 text-red-500" />
+            <div>
+              <p className="font-medium">{new Date(item.check_out_time).toLocaleTimeString()}</p>
+              <p className="text-xs text-gray-500">{new Date(item.check_out_time).toLocaleDateString()}</p>
+            </div>
+          </div>
+        ) : (
+          <span className="text-gray-400 italic">Not checked out</span>
+        ),
     },
     {
       key: 'duration',
@@ -143,7 +251,27 @@ export default function WorkerDetailsPage() {
         const diff = checkOut.getTime() - checkIn.getTime();
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        return `${hours}h ${minutes}m`;
+        return (
+          <div className="flex items-center space-x-1">
+            <Clock className="h-4 w-4 text-gray-400" />
+            <span className="font-medium">{hours}h {minutes}m</span>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'location',
+      header: 'Location',
+      render: (item: AttendanceRecord) => {
+        if (item.latitude && item.longitude) {
+          return (
+            <div className="text-xs">
+              <p className="text-gray-600">Lat: {item.latitude.toFixed(6)}</p>
+              <p className="text-gray-600">Lng: {item.longitude.toFixed(6)}</p>
+            </div>
+          );
+        }
+        return <span className="text-gray-400 text-xs">N/A</span>;
       },
     },
     {
@@ -151,13 +279,23 @@ export default function WorkerDetailsPage() {
       header: 'Status',
       render: (item: AttendanceRecord) => (
         <span
-          className={`px-2 py-1 text-xs font-medium rounded-full ${
+          className={`px-2 py-1 text-xs font-medium rounded-full flex items-center space-x-1 w-fit ${
             item.check_out_time
               ? 'bg-green-100 text-green-800'
               : 'bg-yellow-100 text-yellow-800'
           }`}
         >
-          {item.check_out_time ? 'Completed' : 'Active'}
+          {item.check_out_time ? (
+            <>
+              <CheckCircle className="h-3 w-3" />
+              <span>Completed</span>
+            </>
+          ) : (
+            <>
+              <Clock className="h-3 w-3" />
+              <span>Active</span>
+            </>
+          )}
         </span>
       ),
     },
@@ -166,7 +304,7 @@ export default function WorkerDetailsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading worker details...</div>
+        <div className="text-gray-500">Loading staff details...</div>
       </div>
     );
   }
@@ -179,7 +317,7 @@ export default function WorkerDetailsPage() {
           className="flex items-center space-x-2 text-primary-600 hover:text-primary-700"
         >
           <ArrowLeft className="h-5 w-5" />
-          <span>Back to Workers</span>
+          <span>Back to Staffs</span>
         </button>
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
           {error || 'Worker not found'}
@@ -196,33 +334,56 @@ export default function WorkerDetailsPage() {
           className="flex items-center space-x-2 text-primary-600 hover:text-primary-700"
         >
           <ArrowLeft className="h-5 w-5" />
-          <span>Back to Workers</span>
+          <span>Back to Staffs</span>
         </button>
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-          Worker not found
+          Staff not found
         </div>
       </div>
     );
   }
 
+  const handleRefresh = async () => {
+    setLoading(true);
+    setError('');
+    await Promise.all([fetchWorkerDetails(), fetchAttendanceHistory()]);
+    setLoading(false);
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-4">
-        <button
-          onClick={() => router.back()}
-          className="flex items-center space-x-2 text-primary-600 hover:text-primary-700"
-        >
-          <ArrowLeft className="h-5 w-5" />
-          <span>Back</span>
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">{worker.name}</h1>
-          <p className="text-gray-600 mt-1">Worker Details</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center space-x-2 text-primary-600 hover:text-primary-700"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span>Back</span>
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">{worker.name}</h1>
+            <p className="text-gray-600 mt-1">Staff Details</p>
+          </div>
         </div>
+        <button
+          onClick={handleRefresh}
+          disabled={loading}
+          className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          <span>Refresh</span>
+        </button>
       </div>
 
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card title="Worker Information">
+        <Card title="Staff Information">
           <div className="space-y-4">
             <div className="flex items-start space-x-3">
               <Mail className="h-5 w-5 text-gray-400 mt-0.5" />
@@ -246,7 +407,7 @@ export default function WorkerDetailsPage() {
               <div className="flex items-start space-x-3">
                 <Briefcase className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div>
-                  <p className="text-sm text-gray-600">Department</p>
+                  <p className="text-sm text-gray-600">Role</p>
                   <p className="text-gray-900 font-medium">{worker.role}</p>
                 </div>
               </div>
@@ -260,14 +421,40 @@ export default function WorkerDetailsPage() {
                 </p>
               </div>
             </div>
-            {worker.projects && (
+            {assignedProject && (
+              <div className="flex items-start space-x-3">
+                <Briefcase className="h-5 w-5 text-gray-400 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm text-gray-600">Assigned Project</p>
+                  <p className="text-gray-900 font-medium">
+                    {assignedProject.name}
+                  </p>
+                  {assignedProject.location && (
+                    <div className="flex items-center space-x-1 mt-1">
+                      <MapPin className="h-3 w-3 text-gray-400" />
+                      <p className="text-xs text-gray-500">{assignedProject.location}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {!assignedProject && worker?.project_id && (
               <div className="flex items-start space-x-3">
                 <Briefcase className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div>
-                  <p className="text-sm text-gray-600">Project</p>
-                  <p className="text-gray-900 font-medium">
-                    {worker.projects.name}
+                  <p className="text-sm text-gray-600">Project ID</p>
+                  <p className="text-gray-900 font-medium text-xs">
+                    {worker.project_id}
                   </p>
+                </div>
+              </div>
+            )}
+            {!assignedProject && !worker?.project_id && (
+              <div className="flex items-start space-x-3">
+                <Briefcase className="h-5 w-5 text-gray-400 mt-0.5" />
+                <div>
+                  <p className="text-sm text-gray-600">Assigned Project</p>
+                  <p className="text-gray-500 italic text-sm">Not assigned to any project</p>
                 </div>
               </div>
             )}
@@ -318,12 +505,22 @@ export default function WorkerDetailsPage() {
       )}
 
       <Card title="Attendance History">
-        <Table
-          columns={attendanceColumns}
-          data={attendanceRecords}
-          keyExtractor={(item) => item.id}
-          emptyMessage="No attendance records found"
-        />
+        {attendanceRecords.length === 0 ? (
+          <div className="text-center py-12">
+            <Clock className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500 text-lg font-medium">No attendance records found</p>
+            <p className="text-gray-400 text-sm mt-2">
+              This staff member hasn't checked in yet.
+            </p>
+          </div>
+        ) : (
+          <Table
+            columns={attendanceColumns}
+            data={attendanceRecords}
+            keyExtractor={(item) => item.id}
+            emptyMessage="No attendance records found"
+          />
+        )}
       </Card>
     </div>
   );

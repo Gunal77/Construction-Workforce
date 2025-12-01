@@ -79,7 +79,7 @@ export default function LoginPage() {
               <div className="h-16 w-16 bg-blue-100 rounded-lg flex items-center justify-center">
                 <Users className="h-8 w-8 text-blue-600" />
               </div>
-              <span className="text-sm font-medium text-gray-800">Workers</span>
+              <span className="text-sm font-medium text-gray-800">Staffs</span>
             </div>
             <div className="flex flex-col items-center space-y-2">
               <div className="h-16 w-16 bg-green-100 rounded-lg flex items-center justify-center">
@@ -111,11 +111,18 @@ export default function LoginPage() {
           {/* Logo */}
           <div className="text-center">
             <div className="flex justify-center mb-4">
-              <div className="h-16 w-16 bg-primary-600 rounded-lg flex items-center justify-center shadow-md">
-                <span className="text-white font-bold text-2xl">CW</span>
-              </div>
+              <img 
+                src="/images/logo.png" 
+                alt="Logo" 
+                className="h-20 w-20 object-contain"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  console.error('Logo image failed to load from /images/logo.png');
+                }}
+              />
             </div>
-            <p className="text-sm text-gray-600 mb-6">Enterprise Workforce Management Platform</p>
+            <p className="text-sm text-gray-600 mb-6">Project Workforce Management Platform</p>
             <h2 className="text-2xl font-semibold text-gray-800">Sign in to your account</h2>
           </div>
 
@@ -181,7 +188,7 @@ export default function LoginPage() {
 
           {/* Copyright */}
           <div className="text-center text-xs text-gray-500 mt-8">
-            © 2024 Construction Workforce Admin. Enterprise Edition.
+            © 2024 Project Workforce Admin. Enterprise Edition.
           </div>
         </div>
       </div>

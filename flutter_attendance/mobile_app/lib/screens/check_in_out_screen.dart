@@ -32,19 +32,6 @@ class _CheckInOutScreenState extends State<CheckInOutScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    try {
-      final image = await _imagePicker.pickImage(source: ImageSource.gallery);
-      if (image != null && mounted) {
-        setState(() {
-          _selectedImage = image;
-        });
-      }
-    } catch (error) {
-      _showMessage('Unable to select image');
-    }
-  }
-
   Future<void> _pickImageFromCamera() async {
     try {
       final image = await _imagePicker.pickImage(source: ImageSource.camera);
@@ -286,26 +273,12 @@ class _CheckInOutScreenState extends State<CheckInOutScreen> {
                           ),
                         ),
                       ),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: CustomButton(
-                            onPressed: _pickImageFromCamera,
-                            text: 'Camera',
-                            icon: Icons.camera_alt,
-                            isOutlined: true,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: CustomButton(
-                            onPressed: _pickImage,
-                            text: 'Gallery',
-                            icon: Icons.photo_library,
-                            isOutlined: true,
-                          ),
-                        ),
-                      ],
+                    CustomButton(
+                      onPressed: _pickImageFromCamera,
+                      text: 'Camera',
+                      icon: Icons.camera_alt,
+                      isOutlined: true,
+                      width: double.infinity,
                     ),
                   ],
                 ),

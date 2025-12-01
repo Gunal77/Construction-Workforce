@@ -10,10 +10,18 @@ class SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.supervisor_account,
-              size: 80,
-              color: Theme.of(context).primaryColor,
+            Image.asset(
+              'assets/images/logo.png',
+              width: 120,
+              height: 120,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return Icon(
+                  Icons.image_not_supported,
+                  size: 120,
+                  color: Theme.of(context).primaryColor,
+                );
+              },
             ),
             const SizedBox(height: 24),
             Text(

@@ -101,7 +101,7 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
-          title="Workers"
+          title="Staffs"
           value={totalWorkers}
           subtitle={`${presentToday} active today`}
           icon={<Users className="h-6 w-6 text-primary-600" />}

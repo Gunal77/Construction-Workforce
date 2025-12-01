@@ -27,7 +27,6 @@ class CustomNavigationBar extends StatelessWidget {
       ),
       child: SafeArea(
         child: Container(
-          height: 70,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -79,36 +78,44 @@ class CustomNavigationBar extends StatelessWidget {
       child: InkWell(
         onTap: () => onTap(index),
         borderRadius: BorderRadius.circular(12),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: isActive
-                    ? AppTheme.primaryColor.withOpacity(0.1)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? AppTheme.primaryColor.withOpacity(0.1)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  isActive ? activeIcon : icon,
+                  color: isActive ? AppTheme.primaryColor : AppTheme.textColor.withOpacity(0.6),
+                  size: 24,
+                ),
               ),
-              child: Icon(
-                isActive ? activeIcon : icon,
-                color: isActive ? AppTheme.primaryColor : AppTheme.textColor.withOpacity(0.6),
-                size: 24,
+              const SizedBox(height: 2),
+              Flexible(
+                child: Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                    color: isActive
+                        ? AppTheme.primaryColor
+                        : AppTheme.textColor.withOpacity(0.6),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: 11,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                color: isActive
-                    ? AppTheme.primaryColor
-                    : AppTheme.textColor.withOpacity(0.6),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

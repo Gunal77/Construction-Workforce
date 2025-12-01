@@ -11,7 +11,7 @@ export default function AttendanceTable({ data }: AttendanceTableProps) {
   const columns = [
     {
       key: 'user_email',
-      header: 'Worker',
+      header: 'Staff',
       render: (item: AttendanceRecord) => (
         <span className="font-medium">{item.user_email || 'N/A'}</span>
       ),

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -13,7 +14,7 @@ import {
 
 const menuItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/workers', label: 'Workers', icon: Users },
+  { href: '/workers', label: 'Staffs', icon: Users },
   { href: '/projects', label: 'Projects', icon: FolderKanban },
   { href: '/attendance', label: 'Attendance', icon: Clock },
   { href: '/reports', label: 'Reports', icon: FileText },
@@ -40,9 +41,16 @@ export default function Sidebar() {
     <div className="fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 shadow-sm">
       <div className="flex h-full flex-col">
         <div className="flex h-16 items-center space-x-3 border-b border-gray-200 px-4">
-          <div className="h-10 w-10 bg-primary-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-lg">CW</span>
-          </div>
+          <img 
+            src="/images/logo.png" 
+            alt="Logo" 
+            className="h-10 w-10 object-contain"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+              console.error('Logo image failed to load from /images/logo.png');
+            }}
+          />
           <div>
             <h1 className="text-sm font-bold text-gray-900">Construction Workforce</h1>
           </div>

@@ -81,7 +81,7 @@ export default function ProjectReportsTable({ data }: ProjectReportsTableProps) 
     },
     {
       key: 'workers',
-      header: 'Workers',
+      header: 'Staffs',
       render: (item: ProjectReport) => (
         <span className="text-gray-900">{item.workers}</span>
       ),
