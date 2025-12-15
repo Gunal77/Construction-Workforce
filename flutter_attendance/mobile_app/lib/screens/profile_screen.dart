@@ -11,9 +11,11 @@ class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
     super.key,
     required this.userEmail,
+    this.onBackPressed,
   });
 
   final String userEmail;
+  final VoidCallback? onBackPressed;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -61,9 +63,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      appBar: const CustomAppBar(
+      appBar: CustomAppBar(
         title: 'Profile',
-        showBackButton: false,
+        showBackButton: widget.onBackPressed != null,
+        leading: widget.onBackPressed != null
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_ios, size: 20),
+                onPressed: widget.onBackPressed,
+              )
+            : null,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),

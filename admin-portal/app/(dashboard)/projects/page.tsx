@@ -7,6 +7,7 @@ import Modal from '@/components/Modal';
 import Input from '@/components/Input';
 import Textarea from '@/components/Textarea';
 import ProjectCard from '@/components/ProjectCard';
+import SearchableSelect from '@/components/SearchableSelect';
 import { Plus, Search } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 9;
@@ -23,6 +24,7 @@ export default function ProjectsPage() {
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedProjectFilter, setSelectedProjectFilter] = useState('');
   const [sortBy, setSortBy] = useState('name-asc');
 
   // Form state for add/edit
@@ -129,6 +131,11 @@ export default function ProjectsPage() {
   const filteredAndSortedProjects = useMemo(() => {
     let filtered = projects;
 
+    // Apply project filter
+    if (selectedProjectFilter) {
+      filtered = filtered.filter((project) => project.id === selectedProjectFilter);
+    }
+
     // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -163,7 +170,7 @@ export default function ProjectsPage() {
     });
 
     return sorted;
-  }, [projects, searchQuery, statusFilter, sortBy]);
+  }, [projects, searchQuery, statusFilter, selectedProjectFilter, sortBy]);
 
   // Paginate
   const paginatedProjects = filteredAndSortedProjects.slice(
@@ -209,7 +216,7 @@ export default function ProjectsPage() {
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
         <div className="flex-1 w-full">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-10" />
             <input
               type="text"
               value={searchQuery}
@@ -218,9 +225,27 @@ export default function ProjectsPage() {
                 setCurrentPage(1);
               }}
               placeholder="Search by name, description, or location..."
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+              className="w-full pl-12 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
             />
           </div>
+        </div>
+        <div className="w-full sm:w-auto min-w-[200px]">
+          <SearchableSelect
+            options={[
+              { value: '', label: 'All Projects' },
+              ...projects.map((project) => ({
+                value: project.id,
+                label: project.name,
+              })),
+            ]}
+            value={selectedProjectFilter}
+            onChange={(value) => {
+              setSelectedProjectFilter(value);
+              setCurrentPage(1);
+            }}
+            placeholder="Filter by project"
+            searchPlaceholder="Search projects..."
+          />
         </div>
         <div className="w-full sm:w-auto min-w-[150px]">
           <select

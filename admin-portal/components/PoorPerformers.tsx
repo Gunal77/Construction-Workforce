@@ -1,13 +1,15 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import { Employee, AttendanceRecord } from '@/lib/api';
 import { AlertTriangle } from 'lucide-react';
+import Pagination from './Pagination';
 
 interface PoorPerformer {
   worker: Employee;
   issues: string[];
   attendance: number;
-  priority: 'HIGH' | 'MEDIUM';
+  priority: 'GOOD' | 'MEDIUM' | 'HIGH';
 }
 
 interface PoorPerformersProps {
@@ -15,7 +17,10 @@ interface PoorPerformersProps {
   attendanceRecords: AttendanceRecord[];
 }
 
+const ITEMS_PER_PAGE = 5;
+
 export default function PoorPerformers({ workers, attendanceRecords }: PoorPerformersProps) {
+  const [currentPage, setCurrentPage] = useState(1);
   const today = new Date().toISOString().split('T')[0];
   const todayStart = new Date(today + 'T00:00:00');
   const todayEnd = new Date(today + 'T23:59:59');
@@ -28,8 +33,10 @@ export default function PoorPerformers({ workers, attendanceRecords }: PoorPerfo
   const poorPerformers: PoorPerformer[] = [];
 
   workers.forEach((worker) => {
+    // Match attendance records by email since user_id references users.id, not employees.id
+    // Employees and users are linked by email
     const workerRecords = attendanceRecords.filter(
-      (r) => r.user_id === worker.id
+      (r) => worker.email && r.user_email?.toLowerCase() === worker.email.toLowerCase()
     );
 
     const issues: string[] = [];
@@ -105,32 +112,54 @@ export default function PoorPerformers({ workers, attendanceRecords }: PoorPerfo
     const totalDays = 30;
     const attendance = Math.round((presentDays / totalDays) * 100);
 
-    // Determine priority
-    let priority: 'HIGH' | 'MEDIUM' = 'MEDIUM';
-    if (attendance < 80 || absentCount > 0 || weekLateCount >= 3 || weekAbsentDays >= 2) {
-      priority = 'HIGH';
-    } else if (weekLateCount >= 1 || attendance < 85) {
+    // Determine priority: GOOD first, then MEDIUM, then HIGH
+    let priority: 'GOOD' | 'MEDIUM' | 'HIGH' = 'GOOD';
+    
+    // GOOD priority: 90%+ attendance, no or very few late arrivals, minimal absences
+    // Allow for occasional absence today if overall attendance is excellent
+    if (attendance >= 90 && weekLateCount <= 1 && weekAbsentDays <= 1) {
+      priority = 'GOOD';
+    } 
+    // MEDIUM priority: 80-89% attendance OR some late arrivals OR some absences
+    else if (attendance >= 80 || (weekLateCount >= 1 && weekLateCount < 3) || (weekAbsentDays >= 1 && weekAbsentDays < 2)) {
       priority = 'MEDIUM';
+    } 
+    // HIGH priority: Low attendance (<80%), many late arrivals, or many absences
+    else {
+      priority = 'HIGH';
     }
 
-    // Only include if there are issues or low attendance
-    if (issues.length > 0 || attendance < 90) {
-      poorPerformers.push({
-        worker,
-        issues,
-        attendance,
-        priority,
-      });
-    }
+    // Include all workers for performance tracking
+    poorPerformers.push({
+      worker,
+      issues,
+      attendance,
+      priority,
+    });
   });
 
-  // Sort by priority (HIGH first) and attendance (lowest first)
+  // Sort by priority: GOOD first (0), then MEDIUM (1), then HIGH (2)
+  // Within same priority, sort by attendance (highest first for GOOD, lowest first for others)
   poorPerformers.sort((a, b) => {
-    if (a.priority !== b.priority) {
-      return a.priority === 'HIGH' ? -1 : 1;
+    const priorityOrder: { [key: string]: number } = { 'GOOD': 0, 'MEDIUM': 1, 'HIGH': 2 };
+    const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+    
+    if (priorityDiff !== 0) {
+      return priorityDiff; // Sort by priority first
     }
-    return a.attendance - b.attendance;
+    
+    // Within same priority: GOOD = highest attendance first, others = lowest attendance first
+    if (a.priority === 'GOOD') {
+      return b.attendance - a.attendance; // Descending for GOOD
+    }
+    return a.attendance - b.attendance; // Ascending for MEDIUM/HIGH
   });
+
+  // Pagination
+  const totalPages = Math.ceil(poorPerformers.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedPerformers = poorPerformers.slice(startIndex, endIndex);
 
   if (poorPerformers.length === 0) {
     return null;
@@ -138,20 +167,29 @@ export default function PoorPerformers({ workers, attendanceRecords }: PoorPerfo
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center space-x-2 mb-4">
-        <AlertTriangle className="h-5 w-5 text-yellow-600" />
-        <h3 className="text-lg font-semibold text-gray-800">
-          Poor Performers - Attention Required
-        </h3>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-2">
+          <AlertTriangle className="h-5 w-5 text-yellow-600" />
+          <h3 className="text-lg font-semibold text-gray-800">
+            Performance Overview
+          </h3>
+        </div>
+        {poorPerformers.length > 0 && (
+          <span className="text-sm text-gray-600">
+            Showing {startIndex + 1} - {Math.min(endIndex, poorPerformers.length)} of {poorPerformers.length} workers
+          </span>
+        )}
       </div>
       <div className="space-y-3">
-        {poorPerformers.slice(0, 5).map((performer) => (
+        {paginatedPerformers.map((performer) => (
           <div
             key={performer.worker.id}
             className={`p-4 rounded-lg border ${
               performer.priority === 'HIGH'
                 ? 'bg-red-50 border-red-200'
-                : 'bg-yellow-50 border-yellow-200'
+                : performer.priority === 'MEDIUM'
+                ? 'bg-yellow-50 border-yellow-200'
+                : 'bg-green-50 border-green-200'
             }`}
           >
             <div className="flex items-start justify-between">
@@ -161,7 +199,9 @@ export default function PoorPerformers({ workers, attendanceRecords }: PoorPerfo
                     className={`h-4 w-4 ${
                       performer.priority === 'HIGH'
                         ? 'text-red-600'
-                        : 'text-yellow-600'
+                        : performer.priority === 'MEDIUM'
+                        ? 'text-yellow-600'
+                        : 'text-green-600'
                     }`}
                   />
                   <h4 className="font-semibold text-gray-900">
@@ -169,14 +209,18 @@ export default function PoorPerformers({ workers, attendanceRecords }: PoorPerfo
                   </h4>
                 </div>
                 <div className="space-y-1">
-                  {performer.issues.map((issue, idx) => (
-                    <p
-                      key={idx}
-                      className="text-sm text-gray-700"
-                    >
-                      {issue}
-                    </p>
-                  ))}
+                  {performer.issues.length > 0 ? (
+                    performer.issues.map((issue, idx) => (
+                      <p
+                        key={idx}
+                        className="text-sm text-gray-700"
+                      >
+                        {issue}
+                      </p>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-700">No issues reported</p>
+                  )}
                   <p className="text-sm font-medium text-gray-700">
                     Attendance: {performer.attendance}%
                   </p>
@@ -186,7 +230,9 @@ export default function PoorPerformers({ workers, attendanceRecords }: PoorPerfo
                 className={`px-3 py-1 text-xs font-semibold rounded-full ${
                   performer.priority === 'HIGH'
                     ? 'bg-red-200 text-red-800'
-                    : 'bg-yellow-200 text-yellow-800'
+                    : performer.priority === 'MEDIUM'
+                    ? 'bg-yellow-200 text-yellow-800'
+                    : 'bg-green-200 text-green-800'
                 }`}
               >
                 {performer.priority}
@@ -195,6 +241,15 @@ export default function PoorPerformers({ workers, attendanceRecords }: PoorPerfo
           </div>
         ))}
       </div>
+      
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
+      )}
     </div>
   );
 }

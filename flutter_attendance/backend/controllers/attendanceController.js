@@ -127,7 +127,23 @@ const buildAdminFilters = (query) => {
     paramIndex += 1;
   }
 
-  if (query.date) {
+  // Handle date range (from/to)
+  if (query.from && query.to) {
+    const fromDate = new Date(query.from);
+    const toDate = new Date(query.to);
+    if (!Number.isNaN(fromDate.getTime()) && !Number.isNaN(toDate.getTime())) {
+      // Normalize to start of day for 'from' and end of day for 'to'
+      const fromDateStr = fromDate.toISOString().split('T')[0];
+      const toDateStr = toDate.toISOString().split('T')[0];
+      conditions.push(`DATE(al.check_in_time AT TIME ZONE 'UTC') >= $${paramIndex}`);
+      values.push(fromDateStr);
+      paramIndex += 1;
+      conditions.push(`DATE(al.check_in_time AT TIME ZONE 'UTC') <= $${paramIndex}`);
+      values.push(toDateStr);
+      paramIndex += 1;
+    }
+  } else if (query.date) {
+    // Single date filter (backward compatibility)
     const selectedDate = new Date(query.date);
     if (!Number.isNaN(selectedDate.getTime())) {
       conditions.push(`DATE(al.check_in_time AT TIME ZONE 'UTC') = $${paramIndex}`);

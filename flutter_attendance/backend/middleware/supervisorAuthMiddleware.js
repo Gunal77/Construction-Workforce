@@ -18,10 +18,17 @@ const supervisorAuthMiddleware = (req, res, next) => {
     req.user = decoded;
     next();
   } catch (err) {
-    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
-      return res.status(401).json({ message: 'Invalid or expired token' });
+    // Only log non-signature errors to reduce console spam
+    if (err.name === 'JsonWebTokenError' && err.message === 'invalid signature') {
+      return res.status(401).json({ message: 'Invalid token. Please log out and log in again.' });
     }
-    console.error('Auth middleware error', err);
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Token expired. Please log in again.' });
+    }
+    if (err.name === 'JsonWebTokenError') {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+    console.error('Auth middleware error', err.name, err.message);
     return res.status(500).json({ message: 'Authentication error' });
   }
 };

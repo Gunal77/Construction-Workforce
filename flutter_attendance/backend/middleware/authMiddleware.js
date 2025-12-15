@@ -20,8 +20,18 @@ const authMiddleware = async (req, res, next) => {
     req.user = rows[0];
     return next();
   } catch (error) {
-    console.error('Auth middleware error', error);
-    return res.status(401).json({ message: 'Invalid or expired token' });
+    // Only log non-signature errors to reduce console spam
+    // Invalid signature usually means token was signed with different secret (user needs to re-login)
+    if (error.name !== 'JsonWebTokenError' || error.message !== 'invalid signature') {
+      console.error('Auth middleware error', error.name, error.message);
+    }
+    return res.status(401).json({ 
+      message: error.name === 'TokenExpiredError' 
+        ? 'Token expired. Please log in again.' 
+        : error.name === 'JsonWebTokenError' && error.message === 'invalid signature'
+        ? 'Invalid token. Please log out and log in again.'
+        : 'Invalid or expired token' 
+    });
   }
 };
 

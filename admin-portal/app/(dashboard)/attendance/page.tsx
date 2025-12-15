@@ -6,6 +6,7 @@ import Table from '@/components/Table';
 import Modal from '@/components/Modal';
 import StatCard from '@/components/StatCard';
 import Input from '@/components/Input';
+import SearchableSelect from '@/components/SearchableSelect';
 import { Plus, Search, CheckCircle2, XCircle, Calendar } from 'lucide-react';
 
 export default function AttendancePage() {
@@ -18,6 +19,7 @@ export default function AttendancePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [projectFilter, setProjectFilter] = useState('all');
+  const [employeeFilter, setEmployeeFilter] = useState('');
 
   // Form state for manual attendance
   const [formData, setFormData] = useState({
@@ -36,7 +38,7 @@ export default function AttendancePage() {
 
   useEffect(() => {
     fetchAttendance();
-  }, [statusFilter, projectFilter]);
+  }, [statusFilter, projectFilter, employeeFilter]);
 
   const fetchWorkers = async () => {
     try {
@@ -64,9 +66,11 @@ export default function AttendancePage() {
         sortOrder: 'desc',
       };
 
-      // Filter by date (today)
-      const today = new Date().toISOString().split('T')[0];
-      params.date = today;
+      // Show records from the last 7 days by default instead of just today
+      // This ensures users see data even if there's no attendance today
+      // You can uncomment the line below to filter by today only:
+      // const today = new Date().toISOString().split('T')[0];
+      // params.date = today;
 
       const response = await attendanceAPI.getAll(params);
       setAttendanceRecords(response.records || []);
@@ -137,6 +141,11 @@ export default function AttendancePage() {
   const filteredRecords = useMemo(() => {
     let filtered = attendanceRecords;
 
+    // Apply employee filter
+    if (employeeFilter) {
+      filtered = filtered.filter((record) => record.user_id === employeeFilter);
+    }
+
     // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -164,7 +173,7 @@ export default function AttendancePage() {
     }
 
     // Apply project filter
-    if (projectFilter !== 'all') {
+    if (projectFilter && projectFilter !== 'all') {
       filtered = filtered.filter((record) => {
         const worker = workers.find((w) => w.id === record.user_id);
         return worker?.project_id === projectFilter;
@@ -172,7 +181,7 @@ export default function AttendancePage() {
     }
 
     return filtered;
-  }, [attendanceRecords, searchQuery, statusFilter, projectFilter, workers]);
+  }, [attendanceRecords, searchQuery, statusFilter, projectFilter, employeeFilter, workers]);
 
   const columns = [
     {
@@ -298,51 +307,71 @@ export default function AttendancePage() {
       </div>
 
       {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-        <div className="flex-1 w-full">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by staff name, email, or project..."
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+          <div className="flex-1 w-full">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-10" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by staff name, email, or project..."
+                className="w-full pl-12 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+              />
+            </div>
+          </div>
+          <div className="w-full sm:w-auto min-w-[150px]">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+            >
+              <option value="all">All Status</option>
+              <option value="checked-in">Checked In</option>
+              <option value="checked-out">Checked Out</option>
+            </select>
+          </div>
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center space-x-2 bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors whitespace-nowrap"
+          >
+            <Plus className="h-5 w-5" />
+            <span>Add Manual</span>
+          </button>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+          <div className="w-full sm:w-auto min-w-[200px]">
+            <SearchableSelect
+              options={[
+                { value: '', label: 'All Employees' },
+                ...workers.map((worker) => ({
+                  value: worker.id,
+                  label: worker.name || worker.email || 'Unknown',
+                })),
+              ]}
+              value={employeeFilter}
+              onChange={(value) => setEmployeeFilter(value)}
+              placeholder="Filter by employee"
+              searchPlaceholder="Search employees..."
+            />
+          </div>
+          <div className="w-full sm:w-auto min-w-[200px]">
+            <SearchableSelect
+              options={[
+                { value: 'all', label: 'All Projects' },
+                ...projects.map((project) => ({
+                  value: project.id,
+                  label: project.name,
+                })),
+              ]}
+              value={projectFilter}
+              onChange={(value) => setProjectFilter(value)}
+              placeholder="Filter by project"
+              searchPlaceholder="Search projects..."
             />
           </div>
         </div>
-        <div className="w-full sm:w-auto min-w-[150px]">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
-          >
-            <option value="all">All Status</option>
-            <option value="checked-in">Checked In</option>
-            <option value="checked-out">Checked Out</option>
-          </select>
-        </div>
-        <div className="w-full sm:w-auto min-w-[150px]">
-          <select
-            value={projectFilter}
-            onChange={(e) => setProjectFilter(e.target.value)}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
-          >
-            <option value="all">All Projects</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center space-x-2 bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors whitespace-nowrap"
-        >
-          <Plus className="h-5 w-5" />
-          <span>Add Manual</span>
-        </button>
       </div>
 
       {error && (
@@ -355,7 +384,8 @@ export default function AttendancePage() {
       {filteredRecords.length === 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
           <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500">No attendance records for today</p>
+          <p className="text-gray-500">No attendance records found</p>
+          <p className="text-sm text-gray-400 mt-2">Try adding manual attendance or check if workers have checked in</p>
         </div>
       ) : (
         <Table

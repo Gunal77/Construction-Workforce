@@ -6,6 +6,7 @@ import { employeesAPI, Employee } from '@/lib/api';
 import Modal from '@/components/Modal';
 import Input from '@/components/Input';
 import WorkerCard from '@/components/WorkerCard';
+import SearchableSelect from '@/components/SearchableSelect';
 import { Plus, Search, Trash2 } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 9;
@@ -20,6 +21,7 @@ export default function WorkersPage() {
   const [selectedWorker, setSelectedWorker] = useState<Employee | null>(null);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedEmployeeFilter, setSelectedEmployeeFilter] = useState('');
   const [sortBy, setSortBy] = useState('name-asc');
 
   // Form state
@@ -81,6 +83,11 @@ export default function WorkersPage() {
   const filteredAndSortedWorkers = useMemo(() => {
     let filtered = workers;
 
+    // Apply employee filter
+    if (selectedEmployeeFilter) {
+      filtered = filtered.filter((worker) => worker.id === selectedEmployeeFilter);
+    }
+
     // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -103,7 +110,7 @@ export default function WorkersPage() {
     });
 
     return sorted;
-  }, [workers, searchQuery, sortBy]);
+  }, [workers, searchQuery, selectedEmployeeFilter, sortBy]);
 
   // Paginate
   const paginatedWorkers = filteredAndSortedWorkers.slice(
@@ -149,7 +156,7 @@ export default function WorkersPage() {
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
         <div className="flex-1 w-full">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-10" />
             <input
               type="text"
               value={searchQuery}
@@ -158,9 +165,27 @@ export default function WorkersPage() {
                 setCurrentPage(1); // Reset to first page on search
               }}
               placeholder="Search by name, email, or phone..."
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+              className="w-full pl-12 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
             />
           </div>
+        </div>
+        <div className="w-full sm:w-auto min-w-[200px]">
+          <SearchableSelect
+            options={[
+              { value: '', label: 'All Employees' },
+              ...workers.map((worker) => ({
+                value: worker.id,
+                label: worker.name || worker.email || 'Unknown',
+              })),
+            ]}
+            value={selectedEmployeeFilter}
+            onChange={(value) => {
+              setSelectedEmployeeFilter(value);
+              setCurrentPage(1);
+            }}
+            placeholder="Filter by employee"
+            searchPlaceholder="Search employees..."
+          />
         </div>
         <div className="w-full sm:w-auto min-w-[150px]">
           <select

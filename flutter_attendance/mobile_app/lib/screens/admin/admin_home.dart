@@ -14,11 +14,35 @@ class AdminHomeScreen extends StatefulWidget {
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _pages = [
-    const AdminDashboardScreen(),
-    const ProjectsPage(),
-    const EmployeesPage(),
-  ];
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _updatePages();
+  }
+
+  void _updatePages() {
+    _pages = [
+      AdminDashboardScreen(
+        onBackPressed: null, // No back button on home screen
+      ),
+      ProjectsPage(
+        onBackPressed: () {
+          setState(() {
+            _currentIndex = 0;
+          });
+        },
+      ),
+      EmployeesPage(
+        onBackPressed: () {
+          setState(() {
+            _currentIndex = 0;
+          });
+        },
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {

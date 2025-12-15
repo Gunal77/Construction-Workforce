@@ -3,10 +3,17 @@ import 'package:intl/intl.dart';
 
 import '../../models/attendance_record.dart';
 import '../../services/api_service.dart';
+import '../../widgets/pagination_widget.dart';
+import '../../widgets/searchable_dropdown.dart';
 import 'admin_login.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
-  const AdminDashboardScreen({super.key});
+  const AdminDashboardScreen({
+    super.key,
+    this.onBackPressed,
+  });
+
+  final VoidCallback? onBackPressed;
 
   @override
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
@@ -28,6 +35,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int? _selectedYear;
   int _sortColumnIndex = 3;
   bool _sortAscending = false;
+  int _currentPage = 1;
+  static const int _itemsPerPage = 10;
 
   @override
   void initState() {
@@ -80,6 +89,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     setState(() {
       _allRecords = List<AttendanceRecord>.from(records);
       _userOptions = userEntries;
+      _currentPage = 1; // Reset to first page when records are loaded
     });
     _applyFilters();
   }
@@ -126,7 +136,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     setState(() {
       _filteredRecords = filtered;
+      _currentPage = 1; // Reset to first page when filters change
     });
+  }
+
+  List<AttendanceRecord> _getPaginatedRecords() {
+    if (_filteredRecords.isEmpty) return [];
+    if (_filteredRecords.length <= _itemsPerPage) return _filteredRecords;
+    
+    final startIndex = (_currentPage - 1) * _itemsPerPage;
+    if (startIndex >= _filteredRecords.length) return [];
+    
+    final endIndex = (startIndex + _itemsPerPage).clamp(0, _filteredRecords.length);
+    return _filteredRecords.sublist(startIndex, endIndex);
   }
 
   int _compareRecords(
@@ -284,6 +306,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: widget.onBackPressed != null
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_ios, size: 20),
+                onPressed: widget.onBackPressed,
+              )
+            : null,
         title: const Text(
           'Attendance Dashboard',
           style: TextStyle(fontWeight: FontWeight.bold),
@@ -406,10 +434,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     children: [
                       SizedBox(
                         width: double.infinity,
-                        child: DropdownButtonFormField<String>(
+                        child: SearchableDropdown<String>(
+                          label: 'Filter by user',
+                          hint: 'All users',
                           value: _selectedUserEmail ?? '',
+                          prefixIcon: const Icon(Icons.person_outline),
+                          searchHint: 'Search users...',
                           items: _userDropdownItems,
-                          isExpanded: true,
                           onChanged: (value) {
                             setState(() {
                               _selectedUserEmail = value?.isEmpty ?? true
@@ -418,13 +449,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             });
                             _applyFilters();
                           },
-                          decoration: InputDecoration(
-                            labelText: 'Filter by user',
-                            prefixIcon: const Icon(Icons.person_outline),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -569,14 +593,45 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 )
               : LayoutBuilder(
                   builder: (context, constraints) {
+                    final paginatedRecords = _getPaginatedRecords();
                     if (constraints.maxWidth < 720) {
                       return Column(
-                        children: _filteredRecords
-                            .map((record) => _buildMobileRecordCard(record))
-                            .toList(),
+                        children: [
+                          ...paginatedRecords.map((record) => _buildMobileRecordCard(record)),
+                          if (_filteredRecords.length > _itemsPerPage)
+                            PaginationWidget(
+                              currentPage: _currentPage,
+                              totalPages: (_filteredRecords.length / _itemsPerPage).ceil(),
+                              onPageChanged: (page) {
+                                setState(() {
+                                  _currentPage = page;
+                                });
+                              },
+                              totalItems: _filteredRecords.length,
+                              itemsPerPage: _itemsPerPage,
+                              startIndex: (_currentPage - 1) * _itemsPerPage,
+                            ),
+                        ],
                       );
                     }
-                    return _buildDataTable();
+                    return Column(
+                      children: [
+                        _buildDataTable(),
+                        if (_filteredRecords.length > _itemsPerPage)
+                          PaginationWidget(
+                            currentPage: _currentPage,
+                            totalPages: (_filteredRecords.length / _itemsPerPage).ceil(),
+                            onPageChanged: (page) {
+                              setState(() {
+                                _currentPage = page;
+                              });
+                            },
+                            totalItems: _filteredRecords.length,
+                            itemsPerPage: _itemsPerPage,
+                            startIndex: (_currentPage - 1) * _itemsPerPage,
+                          ),
+                      ],
+                    );
                   },
                 ),
         ],
@@ -585,6 +640,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildDataTable() {
+    final paginatedRecords = _getPaginatedRecords();
     return Card(
       clipBehavior: Clip.antiAlias,
       child: SingleChildScrollView(
@@ -622,7 +678,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
             const DataColumn(label: Text('Image')),
           ],
-          rows: _filteredRecords
+          rows: paginatedRecords
               .map((record) => _buildDataRow(record))
               .toList(),
         ),

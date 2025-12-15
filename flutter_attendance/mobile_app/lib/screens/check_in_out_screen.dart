@@ -10,7 +10,12 @@ import '../widgets/custom_app_bar.dart';
 import '../widgets/custom_button.dart';
 
 class CheckInOutScreen extends StatefulWidget {
-  const CheckInOutScreen({super.key});
+  const CheckInOutScreen({
+    super.key,
+    this.onBackPressed,
+  });
+
+  final VoidCallback? onBackPressed;
 
   @override
   State<CheckInOutScreen> createState() => _CheckInOutScreenState();
@@ -142,7 +147,13 @@ class _CheckInOutScreenState extends State<CheckInOutScreen> {
       backgroundColor: AppTheme.backgroundColor,
       appBar: CustomAppBar(
         title: 'Check In / Check Out',
-        showBackButton: false,
+        showBackButton: widget.onBackPressed != null,
+        leading: widget.onBackPressed != null
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_ios, size: 20),
+                onPressed: widget.onBackPressed,
+              )
+            : null,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),

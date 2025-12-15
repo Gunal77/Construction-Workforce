@@ -27,6 +27,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _updatePages();
+  }
+
+  void _updatePages() {
     _pages = [
       _DashboardHome(
         userEmail: widget.userEmail,
@@ -41,9 +45,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
           });
         },
       ),
-      const CheckInOutScreen(),
-      const AttendanceHistoryScreen(),
-      ProfileScreen(userEmail: widget.userEmail),
+      CheckInOutScreen(
+        onBackPressed: () {
+          setState(() {
+            _currentIndex = 0;
+          });
+        },
+      ),
+      AttendanceHistoryScreen(
+        onBackPressed: () {
+          setState(() {
+            _currentIndex = 0;
+          });
+        },
+      ),
+      ProfileScreen(
+        userEmail: widget.userEmail,
+        onBackPressed: () {
+          setState(() {
+            _currentIndex = 0;
+          });
+        },
+      ),
     ];
   }
 
