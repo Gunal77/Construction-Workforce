@@ -20,9 +20,9 @@ router.get('/', async (req, res) => {
         u.phone,
         COALESCE(u.is_active, TRUE) as is_active,
         u.created_at,
-        0 as project_count,
-        0 as supervisor_count,
-        0 as staff_count
+        COALESCE((SELECT COUNT(*) FROM projects WHERE client_user_id = u.id), 0) as project_count,
+        COALESCE((SELECT COUNT(*) FROM supervisors WHERE client_user_id = u.id), 0) as supervisor_count,
+        COALESCE((SELECT COUNT(*) FROM employees WHERE client_user_id = u.id), 0) as staff_count
       FROM users u
       WHERE u.role = 'client'
     `;
@@ -87,10 +87,39 @@ router.get('/:id', async (req, res) => {
       });
     }
     
-    // For now, return empty arrays for related data
-    const projects = { rows: [] };
-    const supervisors = { rows: [] };
-    const staff = { rows: [] };
+    // Fetch associated projects - ONLY for this specific client
+    const projects = await pool.query(
+      `SELECT id, name, location, start_date, end_date, budget, created_at, description, client_user_id
+       FROM projects 
+       WHERE client_user_id = $1 AND client_user_id IS NOT NULL
+       ORDER BY created_at DESC`,
+      [id]
+    );
+    
+    console.log(`[Client ${id}] Found ${projects.rows.length} projects assigned to this client`);
+    
+    // Fetch associated supervisors - ONLY for this specific client
+    const supervisors = await pool.query(
+      `SELECT id, name, email, phone, created_at, client_user_id
+       FROM supervisors 
+       WHERE client_user_id = $1 AND client_user_id IS NOT NULL
+       ORDER BY name`,
+      [id]
+    );
+    
+    console.log(`[Client ${id}] Found ${supervisors.rows.length} supervisors assigned to this client`);
+    
+    // Fetch associated staff/employees - ONLY for this specific client
+    const staff = await pool.query(
+      `SELECT e.id, e.name, e.email, e.phone, e.role, e.project_id, e.client_user_id, p.name as project_name
+       FROM employees e
+       LEFT JOIN projects p ON e.project_id = p.id
+       WHERE e.client_user_id = $1 AND e.client_user_id IS NOT NULL
+       ORDER BY e.name`,
+      [id]
+    );
+    
+    console.log(`[Client ${id}] Found ${staff.rows.length} staff members assigned to this client`);
     
     res.json({
       success: true,
@@ -420,14 +449,14 @@ router.get('/:id/stats', async (req, res) => {
       });
     }
     
-    // Return empty stats for now
+    // Get actual client statistics
     const statsQuery = `
       SELECT 
-        0 as total_projects,
-        0 as active_projects,
-        0 as total_supervisors,
-        0 as total_staff,
-        0 as assigned_staff
+        COALESCE((SELECT COUNT(*) FROM projects WHERE client_user_id = $1), 0) as total_projects,
+        COALESCE((SELECT COUNT(*) FROM projects WHERE client_user_id = $1 AND (end_date IS NULL OR end_date > NOW())), 0) as active_projects,
+        COALESCE((SELECT COUNT(*) FROM supervisors WHERE client_user_id = $1), 0) as total_supervisors,
+        COALESCE((SELECT COUNT(*) FROM employees WHERE client_user_id = $1), 0) as total_staff,
+        COALESCE((SELECT COUNT(*) FROM employees WHERE client_user_id = $1 AND project_id IS NOT NULL), 0) as assigned_staff
     `;
     
     const result = await pool.query(statsQuery, [id]);

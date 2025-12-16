@@ -149,13 +149,52 @@ export async function getClientById(id: string) {
       };
     }
 
+    // Fetch associated projects
+    const { data: projects, error: projectsError } = await supabase
+      .from('projects')
+      .select('id, name, location, start_date, end_date, status, budget, created_at')
+      .eq('client_user_id', id)
+      .order('created_at', { ascending: false });
+
+    if (projectsError) {
+      console.error('Error fetching projects:', projectsError);
+    } else {
+      console.log(`✅ Found ${projects?.length || 0} projects for client ${id}`);
+    }
+
+    // Fetch associated supervisors
+    const { data: supervisors, error: supervisorsError } = await supabase
+      .from('supervisors')
+      .select('id, name, email, phone, created_at')
+      .eq('client_user_id', id)
+      .order('name');
+
+    if (supervisorsError) {
+      console.error('Error fetching supervisors:', supervisorsError);
+    } else {
+      console.log(`✅ Found ${supervisors?.length || 0} supervisors for client ${id}`);
+    }
+
+    // Fetch associated staff/employees
+    const { data: staff, error: staffError } = await supabase
+      .from('employees')
+      .select('id, name, email, phone, role, project_id')
+      .eq('client_user_id', id)
+      .order('name');
+
+    if (staffError) {
+      console.error('Error fetching staff:', staffError);
+    } else {
+      console.log(`✅ Found ${staff?.length || 0} staff for client ${id}`);
+    }
+
     return {
       success: true,
       data: {
         ...data,
-        projects: [],
-        supervisors: [],
-        staff: [],
+        projects: projects || [],
+        supervisors: supervisors || [],
+        staff: staff || [],
       },
     };
   } catch (error: any) {
@@ -543,19 +582,48 @@ export async function getClientStats(id: string) {
       };
     }
 
-    // Return empty stats for now
+    // Get actual project counts
+    const { count: totalProjects } = await supabase
+      .from('projects')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_user_id', id);
+
+    const { count: activeProjects } = await supabase
+      .from('projects')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_user_id', id)
+      .or('end_date.is.null,end_date.gt.' + new Date().toISOString());
+
+    // Get supervisor count
+    const { count: supervisorCount } = await supabase
+      .from('supervisors')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_user_id', id);
+
+    // Get staff/employee counts
+    const { count: totalStaff } = await supabase
+      .from('employees')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_user_id', id);
+
+    const { count: assignedStaff } = await supabase
+      .from('employees')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_user_id', id)
+      .not('project_id', 'is', null);
+
     return {
       success: true,
       data: {
         projects: {
-          total: 0,
-          active: 0,
+          total: totalProjects || 0,
+          active: activeProjects || 0,
         },
-        supervisors: 0,
+        supervisors: supervisorCount || 0,
         staff: {
-          total: 0,
-          assigned: 0,
-          unassigned: 0,
+          total: totalStaff || 0,
+          assigned: assignedStaff || 0,
+          unassigned: (totalStaff || 0) - (assignedStaff || 0),
         },
       },
     };
