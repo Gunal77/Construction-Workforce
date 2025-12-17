@@ -19,18 +19,53 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${url}`, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
+  // Add timeout to prevent hanging
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw { response: { status: response.status, data: error } };
+  try {
+    const response = await fetch(`${API_BASE_URL}${url}`, {
+      ...options,
+      headers,
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Request failed' }));
+      throw { response: { status: response.status, data: error } };
+    }
+
+    return response.json();
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    
+    // Handle connection errors gracefully
+    if (error.name === 'AbortError') {
+      console.error(`Request timeout: ${API_BASE_URL}${url}`);
+      throw { 
+        response: { 
+          status: 408, 
+          data: { message: 'Request timed out. Backend server may be unavailable.' } 
+        } 
+      };
+    }
+    
+    if (error.code === 'ECONNREFUSED' || error.cause?.code === 'ECONNREFUSED') {
+      console.error(`Connection refused: ${API_BASE_URL}${url}. Is the backend server running?`);
+      throw { 
+        response: { 
+          status: 503, 
+          data: { message: 'Backend server is not available. Please ensure the server is running.' } 
+        } 
+      };
+    }
+    
+    // Re-throw other errors
+    throw error;
   }
-
-  return response.json();
 }
 
 // Server-side API functions

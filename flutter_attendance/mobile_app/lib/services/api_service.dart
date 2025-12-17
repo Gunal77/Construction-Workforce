@@ -155,16 +155,23 @@ class ApiService {
     return _decodeResponse(response);
   }
 
-  Future<Map<String, dynamic>> checkOut() async {
+  Future<Map<String, dynamic>> checkOut({
+    double? latitude,
+    double? longitude,
+  }) async {
     final token = _requireToken();
     final uri = Uri.parse('$_baseUrl/attendance/check-out');
+    final body = <String, dynamic>{};
+    if (latitude != null) body['latitude'] = latitude;
+    if (longitude != null) body['longitude'] = longitude;
+    
     final response = await _client.post(
       uri,
       headers: {
         ..._authHeaders(token),
         HttpHeaders.contentTypeHeader: 'application/json',
       },
-      body: jsonEncode({}),
+      body: jsonEncode(body),
     );
 
     return _decodeResponse(response);

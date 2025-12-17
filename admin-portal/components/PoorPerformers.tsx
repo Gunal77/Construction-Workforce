@@ -132,19 +132,18 @@ export default function PoorPerformers({ workers, attendanceRecords }: PoorPerfo
     const totalDays = 30;
     const attendance = Math.round((presentDays / totalDays) * 100);
 
-    // Determine priority: GOOD first, then MEDIUM, then HIGH
+    // Determine priority: GOOD (green) for >80% attendance, then MEDIUM, then HIGH
     let priority: 'GOOD' | 'MEDIUM' | 'HIGH' = 'GOOD';
     
-    // GOOD priority: 90%+ attendance, no or very few late arrivals, minimal absences
-    // Allow for occasional absence today if overall attendance is excellent
-    if (attendance >= 90 && weekLateCount <= 1 && weekAbsentDays <= 1) {
+    // GOOD priority (Green): Above 80% attendance
+    if (attendance > 80) {
       priority = 'GOOD';
     } 
-    // MEDIUM priority: 80-89% attendance OR some late arrivals OR some absences
-    else if (attendance >= 80 || (weekLateCount >= 1 && weekLateCount < 3) || (weekAbsentDays >= 1 && weekAbsentDays < 2)) {
+    // MEDIUM priority: 50-80% attendance
+    else if (attendance >= 50) {
       priority = 'MEDIUM';
     } 
-    // HIGH priority: Low attendance (<80%), many late arrivals, or many absences
+    // HIGH priority: Below 50% attendance
     else {
       priority = 'HIGH';
     }
@@ -158,21 +157,21 @@ export default function PoorPerformers({ workers, attendanceRecords }: PoorPerfo
     });
   });
 
-  // Sort by priority: GOOD first (0), then MEDIUM (1), then HIGH (2)
+  // Sort by priority: GOOD (green, >75%) first, then MEDIUM, then HIGH
   // Within same priority, sort by attendance (highest first for GOOD, lowest first for others)
   poorPerformers.sort((a, b) => {
     const priorityOrder: { [key: string]: number } = { 'GOOD': 0, 'MEDIUM': 1, 'HIGH': 2 };
     const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
     
     if (priorityDiff !== 0) {
-      return priorityDiff; // Sort by priority first
+      return priorityDiff; // Sort by priority first (GOOD/green first)
     }
     
     // Within same priority: GOOD = highest attendance first, others = lowest attendance first
     if (a.priority === 'GOOD') {
-      return b.attendance - a.attendance; // Descending for GOOD
+      return b.attendance - a.attendance; // Descending for GOOD (highest first)
     }
-    return a.attendance - b.attendance; // Ascending for MEDIUM/HIGH
+    return a.attendance - b.attendance; // Ascending for MEDIUM/HIGH (lowest first)
   });
 
   // Pagination

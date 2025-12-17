@@ -32,8 +32,8 @@ export default function Table<T>({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden w-full max-w-full">
-      <div className="overflow-x-auto max-w-full">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden w-full max-w-full min-w-0">
+      <div className="overflow-x-auto max-w-full min-w-0">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>

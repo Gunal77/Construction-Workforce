@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
@@ -22,28 +25,149 @@ class CheckInOutScreen extends StatefulWidget {
 }
 
 class _CheckInOutScreenState extends State<CheckInOutScreen> {
-  final _latController = TextEditingController();
-  final _longController = TextEditingController();
   final _imagePicker = ImagePicker();
 
   bool _isCheckingIn = false;
   bool _isCheckingOut = false;
+  bool _isFetchingLocation = false;
   XFile? _selectedImage;
+  double? _latitude;
+  double? _longitude;
 
-  @override
-  void dispose() {
-    _latController.dispose();
-    _longController.dispose();
-    super.dispose();
+  Future<bool> _requestCameraPermission() async {
+    final status = await Permission.camera.request();
+    if (status.isDenied) {
+      _showMessage('Camera permission is required to capture photos');
+      return false;
+    }
+    if (status.isPermanentlyDenied) {
+      _showMessage('Camera permission is permanently denied. Please enable it in settings.');
+      return false;
+    }
+    return status.isGranted;
+  }
+
+  Future<bool> _requestLocationPermission() async {
+    // Check if location services are enabled
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      _showMessage('Location services are disabled. Please enable GPS.');
+      return false;
+    }
+
+    // Check location permission
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        _showMessage('Location permission is required to capture your location');
+        return false;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      _showMessage('Location permission is permanently denied. Please enable it in settings.');
+      return false;
+    }
+
+    return permission == LocationPermission.whileInUse || permission == LocationPermission.always;
+  }
+
+  Future<void> _fetchCurrentLocation() async {
+    setState(() {
+      _isFetchingLocation = true;
+    });
+
+    try {
+      // Request location permission
+      final hasPermission = await _requestLocationPermission();
+      if (!hasPermission) {
+        if (mounted) {
+          setState(() {
+            _isFetchingLocation = false;
+            _latitude = null;
+            _longitude = null;
+          });
+        }
+        return;
+      }
+
+      // Try to get last known position first (faster)
+      Position? lastKnownPosition;
+      try {
+        lastKnownPosition = await Geolocator.getLastKnownPosition();
+      } catch (e) {
+        // Ignore if last known position is not available
+      }
+
+      Position position;
+      
+      // If last known position is available, use it; otherwise get current position
+      if (lastKnownPosition != null) {
+        position = lastKnownPosition;
+      } else {
+        try {
+          // Use a shorter timeout and lower accuracy for faster response
+          position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.medium, // Changed from high to medium for faster response
+            timeLimit: const Duration(seconds: 5), // Reduced from 10 to 5 seconds
+          ).timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {
+              throw TimeoutException('Location fetch timed out');
+            },
+          );
+        } catch (timeoutError) {
+          // If timeout, try to get last known position as fallback
+          final fallbackPosition = await Geolocator.getLastKnownPosition();
+          if (fallbackPosition == null) {
+            throw Exception('Unable to get location. Please ensure GPS is enabled.');
+          }
+          position = fallbackPosition;
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _latitude = position.latitude;
+          _longitude = position.longitude;
+          _isFetchingLocation = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isFetchingLocation = false;
+          _latitude = null;
+          _longitude = null;
+        });
+        final errorMessage = e.toString().contains('timeout') || e.toString().contains('Timeout')
+            ? 'Location fetch timed out. Please ensure GPS is enabled and try again.'
+            : 'Unable to fetch location. Please enable GPS.';
+        _showMessage(errorMessage);
+      }
+    }
   }
 
   Future<void> _pickImageFromCamera() async {
+    // Request camera permission
+    final hasCameraPermission = await _requestCameraPermission();
+    if (!hasCameraPermission) {
+      return;
+    }
+
     try {
       final image = await _imagePicker.pickImage(source: ImageSource.camera);
       if (image != null && mounted) {
         setState(() {
           _selectedImage = image;
+          // Reset location when new image is captured
+          _latitude = null;
+          _longitude = null;
         });
+
+        // Automatically fetch GPS location after photo is captured
+        await _fetchCurrentLocation();
       }
     } catch (error) {
       _showMessage('Unable to capture image');
@@ -51,15 +175,13 @@ class _CheckInOutScreenState extends State<CheckInOutScreen> {
   }
 
   Future<void> _handleCheckIn() async {
-    final lat = double.tryParse(_latController.text.trim());
-    final long = double.tryParse(_longController.text.trim());
-
     if (_selectedImage == null) {
-      _showMessage('Please select an image before checking in');
+      _showMessage('Please capture a photo before checking in');
       return;
     }
-    if (lat == null || long == null) {
-      _showMessage('Please provide valid latitude and longitude');
+
+    if (_latitude == null || _longitude == null) {
+      _showMessage('Unable to fetch location. Please enable GPS.');
       return;
     }
 
@@ -70,16 +192,16 @@ class _CheckInOutScreenState extends State<CheckInOutScreen> {
     try {
       await ApiService().checkIn(
         imageFile: File(_selectedImage!.path),
-        latitude: lat,
-        longitude: long,
+        latitude: _latitude!,
+        longitude: _longitude!,
       );
       if (mounted) {
         _showSuccessMessage('Check-in successful');
         setState(() {
           _selectedImage = null;
+          _latitude = null;
+          _longitude = null;
         });
-        _latController.clear();
-        _longController.clear();
       }
     } catch (error) {
       _showMessage(error is ApiException ? error.message : 'Check-in failed');
@@ -93,14 +215,29 @@ class _CheckInOutScreenState extends State<CheckInOutScreen> {
   }
 
   Future<void> _handleCheckOut() async {
+    // Fetch location for check-out
+    await _fetchCurrentLocation();
+
+    if (_latitude == null || _longitude == null) {
+      _showMessage('Unable to fetch location. Please enable GPS.');
+      return;
+    }
+
     setState(() {
       _isCheckingOut = true;
     });
 
     try {
-      await ApiService().checkOut();
+      await ApiService().checkOut(
+        latitude: _latitude!,
+        longitude: _longitude!,
+      );
       if (mounted) {
         _showSuccessMessage('Check-out successful');
+        setState(() {
+          _latitude = null;
+          _longitude = null;
+        });
       }
     } catch (error) {
       _showMessage(error is ApiException ? error.message : 'Check-out failed');
@@ -160,8 +297,8 @@ class _CheckInOutScreenState extends State<CheckInOutScreen> {
             onPressed: () {
               setState(() {
                 _selectedImage = null;
-                _latController.clear();
-                _longController.clear();
+                _latitude = null;
+                _longitude = null;
               });
             },
             tooltip: 'Clear',
@@ -173,7 +310,7 @@ class _CheckInOutScreenState extends State<CheckInOutScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Location Input Section
+            // Location Display Section
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(
@@ -203,39 +340,96 @@ class _CheckInOutScreenState extends State<CheckInOutScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _latController,
-                            keyboardType:
-                                const TextInputType.numberWithOptions(
-                                    decimal: true),
-                            decoration: InputDecoration(
-                              labelText: 'Latitude',
-                              prefixIcon: const Icon(Icons.north),
-                              filled: true,
-                              fillColor: AppTheme.backgroundColor,
-                            ),
+                    if (_isFetchingLocation)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: Column(
+                            children: [
+                              CircularProgressIndicator(),
+                              SizedBox(height: 12),
+                              Text('Fetching GPS location...'),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _longController,
-                            keyboardType:
-                                const TextInputType.numberWithOptions(
-                                    decimal: true),
-                            decoration: InputDecoration(
-                              labelText: 'Longitude',
-                              prefixIcon: const Icon(Icons.east),
-                              filled: true,
-                              fillColor: AppTheme.backgroundColor,
+                      )
+                    else if (_latitude != null && _longitude != null)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.check_circle,
+                                  color: AppTheme.successColor,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Location Captured',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.successColor,
+                                  ),
+                                ),
+                              ],
                             ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Latitude: ${_latitude!.toStringAsFixed(6)}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: AppTheme.textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Longitude: ${_longitude!.toStringAsFixed(6)}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: AppTheme.textColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.backgroundColor,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppTheme.textColor.withOpacity(0.2),
                           ),
                         ),
-                      ],
-                    ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.location_off,
+                              color: AppTheme.textColor.withOpacity(0.5),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Location will be captured automatically after taking a photo',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: AppTheme.textColor.withOpacity(0.7),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -298,7 +492,7 @@ class _CheckInOutScreenState extends State<CheckInOutScreen> {
             const SizedBox(height: 32),
             // Check In Button
             CustomButton(
-              onPressed: _isCheckingIn ? null : _handleCheckIn,
+              onPressed: (_isCheckingIn || _isFetchingLocation) ? null : _handleCheckIn,
               text: 'Check In',
               icon: Icons.login,
               isLoading: _isCheckingIn,
@@ -308,7 +502,7 @@ class _CheckInOutScreenState extends State<CheckInOutScreen> {
             const SizedBox(height: 16),
             // Check Out Button
             CustomButton(
-              onPressed: _isCheckingOut ? null : _handleCheckOut,
+              onPressed: (_isCheckingOut || _isFetchingLocation) ? null : _handleCheckOut,
               text: 'Check Out',
               icon: Icons.logout,
               isLoading: _isCheckingOut,
@@ -333,7 +527,7 @@ class _CheckInOutScreenState extends State<CheckInOutScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Make sure to provide accurate location and a clear photo for check-in.',
+                      'Location is automatically captured using GPS after taking a photo. Make sure GPS is enabled.',
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         color: AppTheme.textColor.withOpacity(0.7),
@@ -349,4 +543,3 @@ class _CheckInOutScreenState extends State<CheckInOutScreen> {
     );
   }
 }
-

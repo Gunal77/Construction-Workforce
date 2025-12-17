@@ -66,31 +66,38 @@ router.post('/login', async (req, res) => {
 
     const normalizedEmail = email.toString().trim().toLowerCase();
 
+    // Only select needed fields for faster query - use limit(1) for optimization
     const { data: admin, error } = await supabase
       .from('admins')
-      .select('*')
+      .select('id, email, password_hash')
       .eq('email', normalizedEmail)
+      .limit(1)
       .maybeSingle();
 
     if (error) {
+      console.error('Supabase query error:', error);
       return res.status(500).json({ message: error.message || 'Failed to fetch admin' });
     }
 
     if (!admin) {
-      return res.status(401).json({ message: 'Admin not found' });
+      // Don't reveal if email exists or not for security
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    // Compare password - this is async but should be fast
     const passwordMatch = await bcrypt.compare(password, admin.password_hash);
     if (!passwordMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    // Generate token quickly
     const token = jwt.sign(
       { id: admin.id, role: 'admin', email: admin.email },
       env.jwtSecret,
       { expiresIn: '1d' },
     );
 
+    // Return immediately
     return res.json({
       token,
       message: 'Login successful',

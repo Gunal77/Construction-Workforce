@@ -6,6 +6,7 @@ import Table from './Table';
 import LastEndDateBadge from './LastEndDateBadge';
 import SearchableSelect from './SearchableSelect';
 import Pagination from './Pagination';
+import { Search, X } from 'lucide-react';
 
 interface WorkerAttendanceReportTableProps {
   workers: Employee[];
@@ -24,6 +25,7 @@ export default function WorkerAttendanceReportTable({
   onPageChange: externalOnPageChange,
   itemsPerPage = 10,
 }: WorkerAttendanceReportTableProps) {
+  const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [inactiveDays, setInactiveDays] = useState<number | null>(null);
   const [internalPage, setInternalPage] = useState(1);
@@ -82,9 +84,15 @@ export default function WorkerAttendanceReportTable({
     }
   };
 
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-    onPageChange(1); // Reset to first page on search change
+  const handleSearch = () => {
+    setSearchQuery(searchInput); // Set search query when button clicked
+    onPageChange(1); // Reset to first page on search
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setSearchQuery('');
+    onPageChange(1);
   };
 
   const columns = [
@@ -127,18 +135,50 @@ export default function WorkerAttendanceReportTable({
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search by name, email, or role..."
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          />
+      {/* Filters - Unified filter section at the top */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-4">
+        <div className="flex-1 flex gap-2">
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSearch();
+                }
+              }}
+              placeholder="Search by name, email, or role..."
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            />
+            {searchInput && (
+              <button
+                onClick={() => setSearchInput('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                title="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <button
+            onClick={handleSearch}
+            className="px-4 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2 whitespace-nowrap"
+          >
+            <Search className="h-5 w-5" />
+            <span>Search</span>
+          </button>
+          {searchQuery && (
+            <button
+              onClick={handleClearSearch}
+              className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2 whitespace-nowrap"
+              title="Clear search and show all workers"
+            >
+              <span>Clear</span>
+            </button>
+          )}
         </div>
-        <div className="w-full sm:w-auto min-w-[200px]">
+        <div className="w-full sm:w-auto sm:min-w-[200px]">
           <select
             value={inactiveDays || ''}
             onChange={(e) => handleInactiveFilterChange(e.target.value ? parseInt(e.target.value, 10) : null)}

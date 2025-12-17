@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authAPI } from '@/lib/api';
 import { setAuthToken } from '@/lib/auth';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,20 +14,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const response = await authAPI.login(email, password);
-    
-    // Set the token in HttpOnly cookie
-    await setAuthToken(response.token);
+    // Call backend directly with timeout for faster response
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
-    return NextResponse.json({
-      message: 'Login successful',
-      user: response.user,
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return NextResponse.json(
+          { message: data.message || 'Login failed' },
+          { status: response.status }
+        );
+      }
+
+      // Set the token in HttpOnly cookie
+      await setAuthToken(data.token);
+
+      return NextResponse.json({
+        message: 'Login successful',
+        user: data.user,
+      });
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        return NextResponse.json(
+          { message: 'Request timed out. Please check your connection and try again.' },
+          { status: 408 }
+        );
+      }
+      throw fetchError;
+    }
   } catch (error: any) {
     console.error('Login error:', error);
     return NextResponse.json(
-      { message: error.response?.data?.message || 'Login failed' },
-      { status: error.response?.status || 500 }
+      { message: error.message || 'Login failed. Please try again.' },
+      { status: error.status || 500 }
     );
   }
 }

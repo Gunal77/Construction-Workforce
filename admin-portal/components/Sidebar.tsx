@@ -16,12 +16,14 @@ import {
   Menu,
   X,
   UserSquare2,
+  UserCog,
 } from 'lucide-react';
 
 const menuItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/clients', label: 'Clients', icon: UserSquare2 },
   { href: '/workers', label: 'Staffs', icon: Users },
+  { href: '/supervisors', label: 'Supervisors', icon: UserCog },
   { href: '/projects', label: 'Projects', icon: FolderKanban },
   { href: '/attendance', label: 'Attendance', icon: Clock },
   { href: '/timesheets', label: 'Timesheets', icon: Timer },

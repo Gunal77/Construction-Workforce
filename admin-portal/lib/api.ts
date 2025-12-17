@@ -9,6 +9,7 @@ export const api: AxiosInstance = axios.create({
     'Content-Type': 'application/json',
   },
   withCredentials: true, // Important for HttpOnly cookies
+  timeout: 5000, // 5 second timeout for faster failure detection
 });
 
 // Request interceptor to add auth token if available
@@ -327,6 +328,17 @@ export const projectsAPI = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ notes }),
+      credentials: 'include',
+    });
+    const data = await response.json();
+    if (!response.ok) throw { response: { status: response.status, data } };
+    return data;
+  },
+  reassignEmployee: async (currentProjectId: string, employeeId: string, newProjectId: string, newStartDate: string) => {
+    const response = await fetch(`/api/proxy/projects/${currentProjectId}/employees/${employeeId}/reassign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_project_id: newProjectId, new_start_date: newStartDate }),
       credentials: 'include',
     });
     const data = await response.json();

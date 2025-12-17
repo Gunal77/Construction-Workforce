@@ -11,7 +11,6 @@ import SearchableSelect from '@/components/SearchableSelect';
 import Select from '@/components/Select';
 import { Plus, Search, X } from 'lucide-react';
 import { getAllClients, ClientData } from '@/app/actions/clientActions';
-import ProjectDetailsModal from '@/components/ProjectDetailsModal';
 
 const ITEMS_PER_PAGE = 9;
 
@@ -35,8 +34,6 @@ export default function ProjectsPage() {
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
   const [userRole, setUserRole] = useState<string | null>('admin'); // Default to admin for admin portal
   const [searchInput, setSearchInput] = useState('');
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [viewingProject, setViewingProject] = useState<Project | null>(null);
 
   // Form state for add/edit
   const [formData, setFormData] = useState({
@@ -202,8 +199,7 @@ export default function ProjectsPage() {
   };
 
   const handleViewProject = (project: Project) => {
-    setViewingProject(project);
-    setIsDetailsModalOpen(true);
+    router.push(`/projects/${project.id}`);
   };
 
   // Filter and sort projects
@@ -845,20 +841,6 @@ export default function ProjectsPage() {
         </div>
       </Modal>
 
-      {/* Project Details Modal */}
-      <ProjectDetailsModal
-        isOpen={isDetailsModalOpen}
-        onClose={() => {
-          setIsDetailsModalOpen(false);
-          setViewingProject(null);
-        }}
-        project={viewingProject}
-        clientName={viewingProject ? (clients.find((c) => c.id === (viewingProject as any).client_user_id)?.name || viewingProject.client_name) : undefined}
-        isAdmin={userRole === 'admin'}
-        onUpdate={() => {
-          fetchProjects();
-        }}
-      />
     </div>
   );
 }

@@ -19,26 +19,39 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password }),
+        signal: controller.signal,
       });
 
-      const data = await response.json();
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
+        const data = await response.json();
         setError(data.message || 'Login failed');
         setLoading(false);
         return;
       }
 
-      // Redirect to dashboard on success
+      const data = await response.json();
+
+      // Redirect to dashboard immediately on success
       router.push('/dashboard');
-    } catch (err) {
-      setError('An error occurred. Please try again.');
+      // Don't set loading to false here - let the redirect happen
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        setError('Request timed out. Please check your connection and try again.');
+      } else {
+        setError(err.message || 'An error occurred. Please try again.');
+      }
       setLoading(false);
     }
   };

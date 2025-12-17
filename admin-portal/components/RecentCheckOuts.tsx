@@ -19,7 +19,10 @@ export default function RecentCheckOuts({ workers, attendanceRecords }: RecentCh
       return recordDate === today;
     })
     .map((record) => {
-      const worker = workers.find((w) => w.id === record.user_id);
+      // Match by email since user_id references users.id, not employees.id
+      const worker = workers.find((w) => 
+        w.email && record.user_email?.toLowerCase() === w.email.toLowerCase()
+      );
       if (!worker || !record.check_out_time) return null;
 
       const checkOutTime = new Date(record.check_out_time);

@@ -7,6 +7,7 @@ import { MapPin, Calendar, DollarSign, Building2, Users, UserCheck, X, Check, Lo
 import { Employee } from '@/lib/api';
 import AssignEmployeesModal from './AssignEmployeesModal';
 import ConfirmDialog from './ConfirmDialog';
+import ReassignEmployeeModal from './ReassignEmployeeModal';
 
 interface ProjectDetailsModalProps {
   isOpen: boolean;
@@ -62,6 +63,8 @@ export default function ProjectDetailsModal({
   const [isRevokeDialogOpen, setIsRevokeDialogOpen] = useState(false);
   const [employeeToRevoke, setEmployeeToRevoke] = useState<ProjectEmployee | null>(null);
   const [revoking, setRevoking] = useState(false);
+  const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
+  const [employeeToReassign, setEmployeeToReassign] = useState<ProjectEmployee | null>(null);
 
   useEffect(() => {
     if (isOpen && project) {
@@ -742,7 +745,8 @@ export default function ProjectDetailsModal({
             <div className="space-y-3">
               {/* Employees Table/List */}
               <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -766,7 +770,7 @@ export default function ProjectDetailsModal({
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {assignedEmployees.map((assignment) => (
-                      <tr key={assignment.id} className="hover:bg-gray-50">
+                      <tr key={assignment.id} className="group hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
                             <div className="text-sm font-medium text-gray-900">
@@ -818,22 +822,40 @@ export default function ProjectDetailsModal({
                         </td>
                         {isAdmin && (
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button
-                              onClick={() => {
-                                setEmployeeToRevoke(assignment);
-                                setIsRevokeDialogOpen(true);
-                              }}
-                              className="text-red-600 hover:text-red-900 inline-flex items-center gap-1 px-3 py-1 rounded hover:bg-red-50 transition-colors"
-                            >
-                              <UserMinus className="h-4 w-4" />
-                              <span>Revoke</span>
-                            </button>
+                            <div className="flex items-center justify-end gap-1.5 min-w-[140px]">
+                              {/* Reassign Button - Always Visible */}
+                              <button
+                                onClick={() => {
+                                  setEmployeeToReassign(assignment);
+                                  setIsReassignModalOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-all duration-200 border border-transparent hover:border-blue-200"
+                                title="Reassign to another project"
+                              >
+                                <UserCheck className="h-4 w-4 flex-shrink-0" />
+                                <span className="text-xs font-medium">Reassign</span>
+                              </button>
+                              
+                              {/* Revoke Button - Hidden by default, shown on row hover */}
+                              <button
+                                onClick={() => {
+                                  setEmployeeToRevoke(assignment);
+                                  setIsRevokeDialogOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-all duration-200 border border-transparent hover:border-red-200 opacity-0 group-hover:opacity-100"
+                                title="Revoke from project"
+                              >
+                                <UserMinus className="h-4 w-4 flex-shrink-0" />
+                                <span className="text-xs font-medium">Revoke</span>
+                              </button>
+                            </div>
                           </td>
                         )}
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             </div>
           )}
@@ -848,6 +870,22 @@ export default function ProjectDetailsModal({
       projectId={project.id}
       projectName={project.name}
       onAssignSuccess={handleAssignSuccess}
+    />
+
+    {/* Reassign Employee Modal */}
+    <ReassignEmployeeModal
+      isOpen={isReassignModalOpen}
+      onClose={() => {
+        setIsReassignModalOpen(false);
+        setEmployeeToReassign(null);
+      }}
+      employee={employeeToReassign}
+      currentProjectId={project.id}
+      currentProjectName={project.name}
+      onReassignSuccess={async () => {
+        await fetchAssignedEmployees();
+        onUpdate?.();
+      }}
     />
 
     {/* Revoke Confirmation Dialog */}

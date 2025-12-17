@@ -56,8 +56,6 @@ export default function ReportsPage() {
   const [toDate, setToDate] = useState<Date>(new Date());
   const [compareRange, setCompareRange] = useState<CompareDateRange | undefined>(undefined);
   const [lastEndDates, setLastEndDates] = useState<Record<string, string | null>>({});
-  const [inactiveDaysFilter, setInactiveDaysFilter] = useState<number | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [leaveStats, setLeaveStats] = useState<any>(null);
   const [showLeaveSection, setShowLeaveSection] = useState(false);
@@ -111,49 +109,24 @@ export default function ReportsPage() {
       const attendanceRecords = attendanceRes.records || [];
       const projects = projectsRes.projects || [];
 
-      let filteredWorkers = workers;
-      
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        filteredWorkers = filteredWorkers.filter((w: any) => {
-          const name = w.name?.toLowerCase() || '';
-          const email = w.email?.toLowerCase() || '';
-          const role = w.role?.toLowerCase() || '';
-          return name.includes(query) || email.includes(query) || role.includes(query);
-        });
-      }
-      
-      const employeeIds = filteredWorkers.map((w: any) => w.id);
+      // Get all employee IDs for fetching last end dates
+      const employeeIds = workers.map((w: any) => w.id);
       
       try {
         const lastEndDatesRes = await lastEndDateAPI.getAll({ 
           employeeIds,
-          inactiveDays: inactiveDaysFilter || undefined,
         });
         const datesMap: Record<string, string | null> = {};
         (lastEndDatesRes.lastEndDates || []).forEach((item: any) => {
           datesMap[item.employee_id] = item.last_end_date;
         });
         setLastEndDates(datesMap);
-        
-        if (inactiveDaysFilter !== null) {
-          const cutoffDate = new Date();
-          cutoffDate.setDate(cutoffDate.getDate() - inactiveDaysFilter);
-          cutoffDate.setHours(0, 0, 0, 0);
-          
-          filteredWorkers = filteredWorkers.filter((w: any) => {
-            const lastEndDate = datesMap[w.id];
-            if (!lastEndDate) return true;
-            const endDate = new Date(lastEndDate);
-            endDate.setHours(0, 0, 0, 0);
-            return endDate < cutoffDate;
-          });
-        }
       } catch (err) {
         console.error('Error fetching last end dates:', err);
       }
       
-      setAllWorkers(filteredWorkers);
+      // Pass all workers to the component - let it handle filtering internally
+      setAllWorkers(workers);
 
       // Fetch leave statistics
       try {
@@ -289,7 +262,7 @@ export default function ReportsPage() {
       });
 
       const projectReports = projects.map((project: any) => {
-        const projectWorkers = filteredWorkers.filter((w: any) => w.project_id === project.id);
+        const projectWorkers = workers.filter((w: any) => w.project_id === project.id);
         // Match attendance records by email (attendance has user_email, employees have email)
         const projectRecords = rangeRecords.filter((r: any) => {
           if (!r.user_email) return false;
@@ -354,7 +327,7 @@ export default function ReportsPage() {
       setReportsData({
         totalProjects: projects.length,
         activeProjects,
-        totalWorkers: filteredWorkers.length,
+        totalWorkers: workers.length,
         activeToday,
         totalHours: Math.round(totalHours),
         hoursTrend,
@@ -368,7 +341,7 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [fromDate, toDate, inactiveDaysFilter, searchQuery, compareRange]);
+  }, [fromDate, toDate, compareRange]);
 
   useEffect(() => {
     // Store scroll position before fetching
@@ -526,49 +499,13 @@ export default function ReportsPage() {
 
       {/* Worker Attendance Report with Last End Dates */}
       <Card title="Worker Attendance Report">
-        <div className="mb-4">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setWorkerReportsPage(1);
-            }}
-            placeholder="Search by name, email, or role..."
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          />
-        </div>
-        <div className="mb-4">
-          <select
-            value={inactiveDaysFilter || ''}
-            onChange={(e) => {
-              const value = e.target.value ? parseInt(e.target.value, 10) : null;
-              setInactiveDaysFilter(value);
-              setWorkerReportsPage(1);
-            }}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          >
-            <option value="">All Workers</option>
-            <option value="1">Inactive 1+ days</option>
-            <option value="3">Inactive 3+ days</option>
-            <option value="7">Inactive 7+ days</option>
-            <option value="14">Inactive 14+ days</option>
-            <option value="30">Inactive 30+ days</option>
-          </select>
-        </div>
-        {allWorkers.length === 0 && !loading ? (
-          <div className="text-center py-8 text-gray-500">
-            No data found for selected filters
-          </div>
-        ) : (
-          <WorkerAttendanceReportTable
-            workers={allWorkers}
-            lastEndDates={lastEndDates}
-            currentPage={workerReportsPage}
-            onPageChange={setWorkerReportsPage}
-            itemsPerPage={ITEMS_PER_PAGE}
-          />
-        )}
+        <WorkerAttendanceReportTable
+          workers={allWorkers}
+          lastEndDates={lastEndDates}
+          currentPage={workerReportsPage}
+          onPageChange={setWorkerReportsPage}
+          itemsPerPage={ITEMS_PER_PAGE}
+        />
       </Card>
 
       {/* Leave Management Section */}

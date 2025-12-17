@@ -20,7 +20,10 @@ export default function RecentCheckIns({ workers, attendanceRecords }: RecentChe
       return recordDate === today;
     })
     .map((record) => {
-      const worker = workers.find((w) => w.id === record.user_id);
+      // Match by email since user_id references users.id, not employees.id
+      const worker = workers.find((w) => 
+        w.email && record.user_email?.toLowerCase() === w.email.toLowerCase()
+      );
       if (!worker) return null;
 
       const checkInTime = new Date(record.check_in_time);

@@ -12,11 +12,34 @@ import PendingLeaveRequestsBanner from '@/components/PendingLeaveRequestsBanner'
 
 async function getDashboardData() {
   try {
-    const [employeesRes, attendanceRes, projectsRes] = await Promise.all([
+    // Use Promise.allSettled to handle individual failures gracefully
+    const [employeesRes, attendanceRes, projectsRes] = await Promise.allSettled([
       serverAPI.employees.getAll(),
       serverAPI.attendance.getAll({ sortBy: 'check_in_time', sortOrder: 'desc' }),
       serverAPI.projects.getAll(),
     ]);
+
+    // Extract data from settled promises, with fallbacks
+    const employeesResData = employeesRes.status === 'fulfilled' 
+      ? employeesRes.value 
+      : { employees: [] };
+    const attendanceResData = attendanceRes.status === 'fulfilled' 
+      ? attendanceRes.value 
+      : { records: [] };
+    const projectsResData = projectsRes.status === 'fulfilled' 
+      ? projectsRes.value 
+      : { projects: [] };
+
+    // Log errors if any requests failed
+    if (employeesRes.status === 'rejected') {
+      console.error('Error fetching employees:', employeesRes.reason);
+    }
+    if (attendanceRes.status === 'rejected') {
+      console.error('Error fetching attendance:', attendanceRes.reason);
+    }
+    if (projectsRes.status === 'rejected') {
+      console.error('Error fetching projects:', projectsRes.reason);
+    }
 
     // Fetch leave statistics for pending requests count
     let pendingLeaveRequests = 0;
@@ -68,9 +91,9 @@ async function getDashboardData() {
       console.error('Error fetching timesheet stats:', err);
     }
 
-    const employees = employeesRes.employees || [];
-    const attendanceRecords = attendanceRes.records || [];
-    const projects = projectsRes.projects || [];
+    const employees = employeesResData.employees || [];
+    const attendanceRecords = attendanceResData.records || [];
+    const projects = projectsResData.projects || [];
 
     const today = new Date().toISOString().split('T')[0];
     const todayRecords = attendanceRecords.filter((record: AttendanceRecord) => {

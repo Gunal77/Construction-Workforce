@@ -49,5 +49,9 @@
 	<string>Camera access is required to capture attendance photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Photo library access is required to attach attendance images.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Location access is required to automatically capture your GPS coordinates for attendance check-in and check-out.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Location access is required to automatically capture your GPS coordinates for attendance check-in and check-out.</string>
 </dict>
 </plist>

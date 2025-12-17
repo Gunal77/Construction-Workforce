@@ -549,9 +549,9 @@ export default function TimesheetsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0 max-w-full">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4 min-w-0">
         <h1 className="text-2xl font-bold text-gray-900">Timesheets</h1>
         <button
           onClick={() => {
@@ -559,7 +559,7 @@ export default function TimesheetsPage() {
             setSelectedTimesheet(null);
             setIsFormModalOpen(true);
           }}
-          className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors whitespace-nowrap"
         >
           <Plus className="h-5 w-5" />
           <span>Add Timesheet</span>
@@ -579,8 +579,8 @@ export default function TimesheetsPage() {
       )}
 
       {/* View Controls */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 min-w-0 max-w-full">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
           <div className="flex items-center space-x-2">
             <button
               onClick={() => {
@@ -653,7 +653,7 @@ export default function TimesheetsPage() {
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 min-w-0">
           <div className="lg:col-span-2">
             <Input
               type="text"
@@ -741,12 +741,14 @@ export default function TimesheetsPage() {
             </div>
           ) : (
             <>
-              <Table
-                columns={columns}
-                data={paginatedTimesheets}
-                keyExtractor={(item) => item.id}
-                emptyMessage="No timesheets found"
-              />
+              <div className="w-full max-w-full min-w-0 overflow-x-auto">
+                <Table
+                  columns={columns}
+                  data={paginatedTimesheets}
+                  keyExtractor={(item) => item.id}
+                  emptyMessage="No timesheets found"
+                />
+              </div>
               {totalPages > 1 && (
                 <Pagination
                   currentPage={currentPage}
