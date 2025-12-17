@@ -153,6 +153,8 @@ export default function ClientProjectsPage() {
               key={project.id}
               project={project}
               onClick={() => router.push(`/client/projects/${project.id}`)}
+              hideClientInfo={true}
+              isAdmin={false}
             />
           ))}
         </div>

@@ -11,6 +11,7 @@ interface ProjectCardProps {
   onArchive?: () => void;
   onDelete?: () => void;
   isAdmin?: boolean;
+  hideClientInfo?: boolean; // Hide client info in client portal
 }
 
 export default function ProjectCard({ 
@@ -20,7 +21,8 @@ export default function ProjectCard({
   onEdit, 
   onArchive,
   onDelete,
-  isAdmin = true 
+  isAdmin = true,
+  hideClientInfo = false
 }: ProjectCardProps) {
   // Determine status
   const isCompleted = project.end_date && new Date(project.end_date) <= new Date();
@@ -112,17 +114,19 @@ export default function ProjectCard({
       </div>
 
       {/* Client Name (Mandatory) */}
-      <div className="mb-3">
-        <div className="flex items-start space-x-2 text-sm">
-          <Building2 className="h-4 w-4 text-primary-600 mt-0.5 flex-shrink-0" />
-          <div>
-            <span className="text-gray-500">Client: </span>
-            <span className="font-medium text-gray-900">
-              {clientName || project.client_name || 'No Client Assigned'}
-            </span>
+      {!hideClientInfo && (
+        <div className="mb-3">
+          <div className="flex items-start space-x-2 text-sm">
+            <Building2 className="h-4 w-4 text-primary-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <span className="text-gray-500">Client: </span>
+              <span className="font-medium text-gray-900">
+                {clientName || project.client_name || 'No Client Assigned'}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Description */}
       {project.description && (

@@ -15,7 +15,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/admin/employees`, {
+    const searchParams = request.nextUrl.searchParams;
+    const queryString = searchParams.toString();
+    const url = `${API_BASE_URL}/api/admin/staffs${queryString ? `?${queryString}` : ''}`;
+
+    const response = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -26,7 +30,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data, { status: response.status });
   } catch (error: any) {
     return NextResponse.json(
-      { message: error.message || 'Failed to fetch employees' },
+      { message: error.message || 'Failed to fetch staffs' },
       { status: 500 }
     );
   }
@@ -41,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    const response = await fetch(`${API_BASE_URL}/api/admin/employees`, {
+    const response = await fetch(`${API_BASE_URL}/api/admin/staffs`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -54,7 +58,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data, { status: response.status });
   } catch (error: any) {
     return NextResponse.json(
-      { message: error.message || 'Failed to create employee' },
+      { message: error.message || 'Failed to create staff' },
       { status: 500 }
     );
   }

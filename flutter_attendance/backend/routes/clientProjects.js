@@ -67,14 +67,30 @@ router.get('/', async (req, res) => {
       });
     }
 
+    // Get client name
+    const { data: clientUser } = await supabase
+      .from('users')
+      .select('name')
+      .eq('id', clientUserId)
+      .maybeSingle();
+    
+    const clientName = clientUser?.name || null;
+
     // Enrich projects with staff counts and supervisor names
     const enrichedProjects = await Promise.all(
       projects.map(async (project) => {
-        // Get staff count for this project
-        const { count: staffCount } = await supabase
+        // Get staff count for this project (from both employees and staffs tables)
+        const { count: employeeCount } = await supabase
           .from('employees')
           .select('*', { count: 'exact', head: true })
           .eq('project_id', project.id);
+        
+        const { count: staffCount } = await supabase
+          .from('staffs')
+          .select('*', { count: 'exact', head: true })
+          .eq('project_id', project.id);
+        
+        const totalStaffCount = (employeeCount || 0) + (staffCount || 0);
 
         // Get assigned supervisor (one per project)
         const { data: supervisorRelation } = await supabase
@@ -96,8 +112,9 @@ router.get('/', async (req, res) => {
 
         return {
           ...project,
-          staff_count: staffCount || 0,
+          staff_count: totalStaffCount,
           supervisor_name: supervisorName,
+          client_name: clientName, // Add client name to each project
         };
       })
     );

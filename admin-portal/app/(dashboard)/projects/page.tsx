@@ -287,7 +287,7 @@ export default function ProjectsPage() {
     });
 
     return sorted;
-  }, [projects, searchQuery, statusFilter, selectedProjectFilter, clientFilter, sortBy]);
+  }, [projects, searchQuery, statusFilter, selectedProjectFilter, clientFilter, sortBy, dateRangeStart, dateRangeEnd]);
 
   // Paginate
   const paginatedProjects = filteredAndSortedProjects.slice(

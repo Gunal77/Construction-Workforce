@@ -52,11 +52,29 @@ export async function getAllClients(options?: {
   statusFilter?: 'all' | 'active' | 'inactive';
 }) {
   try {
-    const supabase = getSupabase();
+    // Get auth token from cookies
+    const { cookies } = await import('next/headers');
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value;
     
+    if (!token) {
+      return {
+        success: false,
+        error: 'Unauthorized',
+        data: [],
+        pagination: {
+          page: 1,
+          limit: 9,
+          total: 0,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPrevPage: false,
+        },
+      };
+    }
+
     const page = options?.page || 1;
     const limit = options?.limit || 9;
-    const offset = (page - 1) * limit;
     const search = options?.search?.trim() || '';
     const sortBy = options?.sortBy || 'created_at';
     const sortOrder = options?.sortOrder || 'DESC';
@@ -64,41 +82,58 @@ export async function getAllClients(options?: {
 
     console.log('🔍 Fetching clients with:', { page, limit, search, sortBy, sortOrder, statusFilter });
 
-    // Build query
-    let query = supabase
-      .from('users')
-      .select('id, name, email, phone, role, is_active, created_at', { count: 'exact' })
-      .eq('role', 'client');
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+    
+    // Build query params
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (statusFilter !== 'all') params.append('isActive', statusFilter === 'active' ? 'true' : 'false');
+    params.append('sortBy', sortBy);
+    params.append('sortOrder', sortOrder);
+    
+    const url = `${API_BASE_URL}/api/admin/clients?${params.toString()}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    });
 
-    // Apply search filter
-    if (search) {
-      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to fetch clients' }));
+      throw new Error(errorData.message || errorData.error || 'Failed to fetch clients');
     }
 
-    // Apply status filter
-    if (statusFilter === 'active') {
-      query = query.eq('is_active', true);
-    } else if (statusFilter === 'inactive') {
-      query = query.eq('is_active', false);
+    const result = await response.json();
+    
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error || 'Failed to fetch clients',
+        data: [],
+        pagination: {
+          page: 1,
+          limit: 9,
+          total: 0,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPrevPage: false,
+        },
+      };
     }
 
-    // Apply sorting
-    const ascending = sortOrder === 'ASC';
-    query = query.order(sortBy, { ascending });
-
-    // Apply pagination
-    query = query.range(offset, offset + limit - 1);
-
-    const { data, error, count } = await query;
-
-    if (error) throw error;
-
-    const totalPages = count ? Math.ceil(count / limit) : 0;
-    const totalClients = count || 0;
+    // Apply client-side pagination since backend doesn't support it yet
+    const allClients = result.data || [];
+    const totalClients = allClients.length;
+    const offset = (page - 1) * limit;
+    const paginatedClients = allClients.slice(offset, offset + limit);
+    const totalPages = Math.ceil(totalClients / limit);
 
     return {
       success: true,
-      data: data || [],
+      data: paginatedClients,
       pagination: {
         page,
         limit,
@@ -112,7 +147,7 @@ export async function getAllClients(options?: {
     console.error('Error fetching clients:', error);
     return {
       success: false,
-      error: error.message,
+      error: error.message || 'Failed to fetch clients',
       data: [],
       pagination: {
         page: 1,
@@ -131,38 +166,53 @@ export async function getAllClients(options?: {
  */
 export async function getClientById(id: string) {
   try {
-    const supabase = getSupabase();
+    // Get auth token from cookies
+    const { cookies } = await import('next/headers');
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value;
     
-    const { data, error } = await supabase
-      .from('users')
-      .select('id, name, email, phone, role, is_active, created_at')
-      .eq('id', id)
-      .eq('role', 'client')
-      .single();
-
-    if (error) throw error;
-    
-    if (!data) {
+    if (!token) {
       return {
         success: false,
-        error: 'Client not found',
+        error: 'Unauthorized',
+      };
+    }
+
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+    const response = await fetch(`${API_BASE_URL}/api/admin/clients/${id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to fetch client' }));
+      return {
+        success: false,
+        error: errorData.message || errorData.error || 'Failed to fetch client',
+      };
+    }
+
+    const result = await response.json();
+    
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error || 'Failed to fetch client',
       };
     }
 
     return {
       success: true,
-      data: {
-        ...data,
-        projects: [],
-        supervisors: [],
-        staff: [],
-      },
+      data: result.data,
     };
   } catch (error: any) {
     console.error('Error fetching client:', error);
     return {
       success: false,
-      error: error.message,
+      error: error.message || 'Failed to fetch client',
     };
   }
 }
@@ -526,44 +576,53 @@ export async function deleteClient(id: string) {
  */
 export async function getClientStats(id: string) {
   try {
-    const supabase = getSupabase();
+    // Get auth token from cookies
+    const { cookies } = await import('next/headers');
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value;
     
-    // Check if client exists
-    const { data: existing } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', id)
-      .eq('role', 'client')
-      .single();
-
-    if (!existing) {
+    if (!token) {
       return {
         success: false,
-        error: 'Client not found',
+        error: 'Unauthorized',
       };
     }
 
-    // Return empty stats for now
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+    const response = await fetch(`${API_BASE_URL}/api/admin/clients/${id}/stats`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to fetch client stats' }));
+      return {
+        success: false,
+        error: errorData.message || errorData.error || 'Failed to fetch client stats',
+      };
+    }
+
+    const result = await response.json();
+    
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error || 'Failed to fetch client stats',
+      };
+    }
+
     return {
       success: true,
-      data: {
-        projects: {
-          total: 0,
-          active: 0,
-        },
-        supervisors: 0,
-        staff: {
-          total: 0,
-          assigned: 0,
-          unassigned: 0,
-        },
-      },
+      data: result.data,
     };
   } catch (error: any) {
     console.error('Error fetching client stats:', error);
     return {
       success: false,
-      error: error.message,
+      error: error.message || 'Failed to fetch client stats',
     };
   }
 }

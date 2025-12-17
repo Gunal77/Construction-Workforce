@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.my-backend.com/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
 
 // Create axios instance
 export const api: AxiosInstance = axios.create({
@@ -265,6 +265,82 @@ export const projectsAPI = {
     if (!response.ok) throw { response: { status: response.status, data } };
     return data;
   },
+  // Employee Assignment APIs
+  getAssignedEmployees: async (projectId: string): Promise<{ employees: ProjectEmployee[]; total: number }> => {
+    const response = await fetch(`/api/proxy/projects/${projectId}/employees`, {
+      credentials: 'include',
+    });
+    const data = await response.json();
+    if (!response.ok) throw { response: { status: response.status, data } };
+    return data;
+  },
+  getAvailableEmployees: async (projectId: string, params?: {
+    search?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    employees: Employee[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> => {
+    const queryString = params
+      ? '?' + new URLSearchParams(
+          Object.entries(params).reduce((acc, [key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+              acc[key] = String(value);
+            }
+            return acc;
+          }, {} as Record<string, string>)
+        ).toString()
+      : '';
+    const response = await fetch(`/api/proxy/projects/${projectId}/available-employees${queryString}`, {
+      credentials: 'include',
+    });
+    const data = await response.json();
+    if (!response.ok) throw { response: { status: response.status, data } };
+    return data;
+  },
+  assignEmployees: async (projectId: string, employeeIds: string[], options?: {
+    notes?: string;
+    start_date?: string;
+    end_date?: string;
+  }) => {
+    const response = await fetch(`/api/proxy/projects/${projectId}/employees`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        employee_ids: employeeIds, 
+        notes: options?.notes,
+        start_date: options?.start_date,
+        end_date: options?.end_date,
+      }),
+      credentials: 'include',
+    });
+    const data = await response.json();
+    if (!response.ok) throw { response: { status: response.status, data } };
+    return data;
+  },
+  revokeEmployee: async (projectId: string, employeeId: string, notes?: string) => {
+    const response = await fetch(`/api/proxy/projects/${projectId}/employees/${employeeId}/revoke`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes }),
+      credentials: 'include',
+    });
+    const data = await response.json();
+    if (!response.ok) throw { response: { status: response.status, data } };
+    return data;
+  },
+  getEmployeeAssignmentHistory: async (projectId: string) => {
+    const response = await fetch(`/api/proxy/projects/${projectId}/employees/history`, {
+      credentials: 'include',
+    });
+    const data = await response.json();
+    if (!response.ok) throw { response: { status: response.status, data } };
+    return data;
+  },
 };
 
 // Types
@@ -281,6 +357,28 @@ export interface Employee {
     name: string;
     location?: string;
   };
+  is_assigned?: boolean;
+  assigned_project_id?: string | null;
+  assigned_project_name?: string | null;
+  is_assigned_to_current_project?: boolean;
+}
+
+export interface ProjectEmployee {
+  id: string;
+  employee_id: string;
+  assigned_at: string;
+  revoked_at?: string | null;
+  assignment_start_date?: string | null;
+  assignment_end_date?: string | null;
+  status: 'active' | 'revoked';
+  assigned_by?: string;
+  revoked_by?: string | null;
+  notes?: string | null;
+  employee_name?: string;
+  employee_email?: string;
+  employee_phone?: string;
+  employee_role?: string;
+  employee_created_at?: string;
 }
 
 export interface AttendanceRecord {

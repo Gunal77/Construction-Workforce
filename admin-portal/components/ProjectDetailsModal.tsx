@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Project, projectsAPI, employeesAPI } from '@/lib/api';
+import { Project, projectsAPI, employeesAPI, ProjectEmployee } from '@/lib/api';
 import Modal from './Modal';
-import { MapPin, Calendar, DollarSign, Building2, Users, UserCheck, X, Check, Loader2, Search } from 'lucide-react';
+import { MapPin, Calendar, DollarSign, Building2, Users, UserCheck, X, Check, Loader2, Search, UserMinus, Trash2 } from 'lucide-react';
 import { Employee } from '@/lib/api';
+import AssignEmployeesModal from './AssignEmployeesModal';
+import ConfirmDialog from './ConfirmDialog';
 
 interface ProjectDetailsModalProps {
   isOpen: boolean;
@@ -15,7 +17,7 @@ interface ProjectDetailsModalProps {
   onUpdate?: () => void;
 }
 
-type Tab = 'overview' | 'assign-staffs' | 'assign-supervisor';
+type Tab = 'overview' | 'assign-staffs' | 'assign-supervisor' | 'assigned-employees';
 
 interface Supervisor {
   id: string;
@@ -52,6 +54,14 @@ export default function ProjectDetailsModal({
 
   // Project details state
   const [projectDetails, setProjectDetails] = useState<Project | null>(project);
+
+  // Assigned Employees state
+  const [assignedEmployees, setAssignedEmployees] = useState<ProjectEmployee[]>([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [isAssignEmployeesModalOpen, setIsAssignEmployeesModalOpen] = useState(false);
+  const [isRevokeDialogOpen, setIsRevokeDialogOpen] = useState(false);
+  const [employeeToRevoke, setEmployeeToRevoke] = useState<ProjectEmployee | null>(null);
+  const [revoking, setRevoking] = useState(false);
 
   useEffect(() => {
     if (isOpen && project) {
@@ -184,6 +194,58 @@ export default function ProjectDetailsModal({
     }
   };
 
+  // Fetch assigned employees
+  const fetchAssignedEmployees = async () => {
+    if (!project) return;
+
+    try {
+      setLoadingEmployees(true);
+      const data = await projectsAPI.getAssignedEmployees(project.id);
+      setAssignedEmployees(data.employees || []);
+    } catch (err: any) {
+      console.error('Error fetching assigned employees:', err);
+      setError(err.response?.data?.message || 'Failed to fetch assigned employees');
+    } finally {
+      setLoadingEmployees(false);
+    }
+  };
+
+  // Handle revoke employee
+  const handleRevokeEmployee = async () => {
+    if (!project || !employeeToRevoke || !isAdmin) return;
+
+    try {
+      setRevoking(true);
+      setError('');
+      setSuccess('');
+
+      await projectsAPI.revokeEmployee(project.id, employeeToRevoke.employee_id);
+
+      setSuccess('Employee revoked successfully');
+      setIsRevokeDialogOpen(false);
+      setEmployeeToRevoke(null);
+      await fetchAssignedEmployees();
+      onUpdate?.();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to revoke employee');
+    } finally {
+      setRevoking(false);
+    }
+  };
+
+  // Handle assign success
+  const handleAssignSuccess = async () => {
+    await fetchAssignedEmployees();
+    onUpdate?.();
+  };
+
+  // Fetch assigned employees when tab changes to assigned-employees
+  useEffect(() => {
+    if (activeTab === 'assigned-employees' && project) {
+      fetchAssignedEmployees();
+    }
+  }, [activeTab, project]);
+
   if (!project) return null;
 
   const formatBudget = (budget: number | string | null | undefined) => {
@@ -201,6 +263,7 @@ export default function ProjectDetailsModal({
   const budget = formatBudget(project.budget);
 
   return (
+    <>
     <Modal isOpen={isOpen} onClose={onClose} title={`Project: ${project.name}`} size="xl">
       {/* Tabs */}
       <div className="border-b border-gray-200 mb-6">
@@ -234,6 +297,16 @@ export default function ProjectDetailsModal({
             }`}
           >
             Assign Supervisor
+          </button>
+          <button
+            onClick={() => setActiveTab('assigned-employees')}
+            className={`py-2 px-4 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'assigned-employees'
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Assigned Employees
           </button>
         </nav>
       </div>
@@ -620,7 +693,179 @@ export default function ProjectDetailsModal({
           )}
         </div>
       )}
+
+      {/* Assigned Employees Tab */}
+      {activeTab === 'assigned-employees' && (
+        <div className="space-y-4">
+          {/* Header with Assign Button */}
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Assigned Employees ({assignedEmployees.length})
+            </h3>
+            {isAdmin && (
+              <button
+                onClick={() => setIsAssignEmployeesModalOpen(true)}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
+              >
+                <Users className="h-4 w-4" />
+                <span>Assign Employees</span>
+              </button>
+            )}
+          </div>
+
+          {!isAdmin && (
+            <p className="text-sm text-gray-500 italic">
+              Read-only view. Only admins can assign or revoke employees.
+            </p>
+          )}
+
+          {/* Loading State */}
+          {loadingEmployees ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+            </div>
+          ) : assignedEmployees.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
+              <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">No employees assigned to this project yet</p>
+              {isAdmin && (
+                <button
+                  onClick={() => setIsAssignEmployeesModalOpen(true)}
+                  className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors inline-flex items-center gap-2"
+                >
+                  <Users className="h-4 w-4" />
+                  <span>Assign Employees</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Employees Table/List */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Employee Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Role / Trade
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Assignment Period
+                      </th>
+                      {isAdmin && (
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Action
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {assignedEmployees.map((assignment) => (
+                      <tr key={assignment.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {assignment.employee_name || 'Unknown'}
+                            </div>
+                            {assignment.employee_email && (
+                              <div className="text-sm text-gray-500">
+                                {assignment.employee_email}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-900">
+                            {assignment.employee_role || 'N/A'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              assignment.status === 'active'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            {assignment.status === 'active' ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {assignment.assignment_start_date && assignment.assignment_end_date ? (
+                            <div>
+                              <div className="font-medium text-gray-900">
+                                {new Date(assignment.assignment_start_date).toLocaleDateString()} - {new Date(assignment.assignment_end_date).toLocaleDateString()}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Assigned: {new Date(assignment.assigned_at).toLocaleDateString()}
+                              </div>
+                            </div>
+                          ) : assignment.assigned_at ? (
+                            <div>
+                              <div className="text-gray-500">No specific period</div>
+                              <div className="text-xs text-gray-500">
+                                Assigned: {new Date(assignment.assigned_at).toLocaleDateString()}
+                              </div>
+                            </div>
+                          ) : (
+                            'N/A'
+                          )}
+                        </td>
+                        {isAdmin && (
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              onClick={() => {
+                                setEmployeeToRevoke(assignment);
+                                setIsRevokeDialogOpen(true);
+                              }}
+                              className="text-red-600 hover:text-red-900 inline-flex items-center gap-1 px-3 py-1 rounded hover:bg-red-50 transition-colors"
+                            >
+                              <UserMinus className="h-4 w-4" />
+                              <span>Revoke</span>
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </Modal>
+
+    {/* Assign Employees Modal */}
+    <AssignEmployeesModal
+      isOpen={isAssignEmployeesModalOpen}
+      onClose={() => setIsAssignEmployeesModalOpen(false)}
+      projectId={project.id}
+      projectName={project.name}
+      onAssignSuccess={handleAssignSuccess}
+    />
+
+    {/* Revoke Confirmation Dialog */}
+    <ConfirmDialog
+      isOpen={isRevokeDialogOpen}
+      onClose={() => {
+        setIsRevokeDialogOpen(false);
+        setEmployeeToRevoke(null);
+      }}
+      onConfirm={handleRevokeEmployee}
+      title="Revoke Employee"
+      message={`Are you sure you want to revoke ${employeeToRevoke?.employee_name || 'this employee'} from the project? This will make the employee available for assignment to other projects.`}
+      confirmText="Revoke"
+      cancelText="Cancel"
+      isDestructive={true}
+      isLoading={revoking}
+    />
+    </>
   );
 }
 
