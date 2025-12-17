@@ -245,16 +245,12 @@ export async function getClientById(id: string) {
 
     return {
       success: true,
-<<<<<<< HEAD
-      data: result.data,
-=======
       data: {
         ...data,
         projects: projects || [],
         supervisors: supervisors || [],
         staff: staff || [],
       },
->>>>>>> a4f152ed4e64e77634119230cc2b7debffcfc50e
     };
   } catch (error: any) {
     console.error('Error fetching client:', error);
@@ -662,56 +658,9 @@ export async function getClientStats(id: string) {
       };
     }
 
-<<<<<<< HEAD
     return {
       success: true,
       data: result.data,
-=======
-    // Get actual project counts
-    const { count: totalProjects } = await supabase
-      .from('projects')
-      .select('*', { count: 'exact', head: true })
-      .eq('client_user_id', id);
-
-    const { count: activeProjects } = await supabase
-      .from('projects')
-      .select('*', { count: 'exact', head: true })
-      .eq('client_user_id', id)
-      .or('end_date.is.null,end_date.gt.' + new Date().toISOString());
-
-    // Get supervisor count
-    const { count: supervisorCount } = await supabase
-      .from('supervisors')
-      .select('*', { count: 'exact', head: true })
-      .eq('client_user_id', id);
-
-    // Get staff/employee counts
-    const { count: totalStaff } = await supabase
-      .from('employees')
-      .select('*', { count: 'exact', head: true })
-      .eq('client_user_id', id);
-
-    const { count: assignedStaff } = await supabase
-      .from('employees')
-      .select('*', { count: 'exact', head: true })
-      .eq('client_user_id', id)
-      .not('project_id', 'is', null);
-
-    return {
-      success: true,
-      data: {
-        projects: {
-          total: totalProjects || 0,
-          active: activeProjects || 0,
-        },
-        supervisors: supervisorCount || 0,
-        staff: {
-          total: totalStaff || 0,
-          assigned: assignedStaff || 0,
-          unassigned: (totalStaff || 0) - (assignedStaff || 0),
-        },
-      },
->>>>>>> a4f152ed4e64e77634119230cc2b7debffcfc50e
     };
   } catch (error: any) {
     console.error('Error fetching client stats:', error);
