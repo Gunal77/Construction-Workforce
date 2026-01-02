@@ -52,7 +52,8 @@
         "assign:employees": "node scripts/assign-all-employees-to-projects.js",
         "generate:timesheets": "node scripts/generate-timesheets-from-attendance.js",
         "update:timesheets": "node scripts/update-timesheets-with-sample-data.js",
-        "fix:timesheet-staff": "node scripts/fix-timesheet-staff-linking.js"
+        "fix:timesheet-staff": "node scripts/fix-timesheet-staff-linking.js",
+        "seed:leave-summaries": "node scripts/seed_leave_and_summaries_mongo.js"
   },
   "keywords": [],
   "author": "",
