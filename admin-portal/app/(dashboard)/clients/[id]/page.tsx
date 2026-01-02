@@ -368,30 +368,22 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         <StatCard
           title="Total Projects"
           value={stats?.projects?.total || 0}
-          icon={<FolderKanban className="h-6 w-6" />}
-          iconBgColor="bg-blue-50"
-          iconColor="text-blue-600"
+          icon={<FolderKanban className="h-6 w-6 text-blue-600" />}
         />
         <StatCard
           title="Active Projects"
           value={stats?.projects?.active || 0}
-          icon={<Building2 className="h-6 w-6" />}
-          iconBgColor="bg-green-50"
-          iconColor="text-green-600"
+          icon={<Building2 className="h-6 w-6 text-green-600" />}
         />
         <StatCard
           title="Supervisors"
           value={stats?.supervisors || 0}
-          icon={<UserCheck className="h-6 w-6" />}
-          iconBgColor="bg-purple-50"
-          iconColor="text-purple-600"
+          icon={<UserCheck className="h-6 w-6 text-purple-600" />}
         />
         <StatCard
           title="Total Staff"
           value={stats?.staff?.total || 0}
-          icon={<Users className="h-6 w-6" />}
-          iconBgColor="bg-orange-50"
-          iconColor="text-orange-600"
+          icon={<Users className="h-6 w-6 text-orange-600" />}
         />
       </div>
 
