@@ -10,6 +10,7 @@ export interface ClientData {
   role: string;
   is_active: boolean;
   created_at: string;
+  updated_at: string;
   project_count?: number;
   supervisor_count?: number;
   staff_count?: number;
