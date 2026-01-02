@@ -58,7 +58,7 @@ export async function getAllClients(options?: {
 
     console.log('🔍 Fetching clients with:', { page, limit, search, sortBy, sortOrder, statusFilter });
 
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
     
     // Build query params
     const params = new URLSearchParams();
@@ -154,7 +154,7 @@ export async function getClientById(id: string) {
       };
     }
 
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
     const response = await fetch(`${API_BASE_URL}/api/admin/clients/${id}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -281,7 +281,7 @@ export async function createClient(formData: {
       };
     }
 
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
     
     // Build request payload
     const payload: any = {
@@ -368,7 +368,7 @@ export async function updateClient(
       };
     }
 
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
     
     // Build update payload
     const updates: any = {};
@@ -442,7 +442,7 @@ export async function deleteClient(id: string) {
       };
     }
 
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
     const response = await fetch(`${API_BASE_URL}/api/admin/clients/${id}`, {
       method: 'DELETE',
       headers: {
@@ -502,7 +502,7 @@ export async function getClientStats(id: string) {
       };
     }
 
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
     const response = await fetch(`${API_BASE_URL}/api/admin/clients/${id}/stats`, {
       headers: {
         'Authorization': `Bearer ${token}`,

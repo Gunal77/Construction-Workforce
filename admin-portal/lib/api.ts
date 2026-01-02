@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+// Support both NEXT_PUBLIC_API_BASE_URL and NEXT_PUBLIC_API_URL for compatibility
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 // Create axios instance
 export const api: AxiosInstance = axios.create({

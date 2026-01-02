@@ -15,7 +15,7 @@ async function getDashboardData() {
     // Get auth token once
     const cookieStore = await import('next/headers').then(m => m.cookies());
     const token = cookieStore.get('auth_token')?.value;
-    const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+    const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
     // Make ALL API calls in parallel for maximum performance
     const [employeesRes, attendanceRes, projectsRes, supervisorsRes, leaveStatsRes, timesheetStatsRes] = await Promise.allSettled([
