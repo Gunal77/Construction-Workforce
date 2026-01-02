@@ -17,6 +17,7 @@ function LeaveManagementContent() {
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<{ id: string; name: string } | null>(null);
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [selectedEmployeeBalance, setSelectedEmployeeBalance] = useState<LeaveBalance[]>([]);
@@ -59,6 +60,7 @@ function LeaveManagementContent() {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setError(null);
       const [requestsRes, typesRes, employeesRes] = await Promise.all([
         leaveAPI.getRequests({ 
           status: filterStatus === 'all' ? undefined : filterStatus, 
@@ -74,6 +76,8 @@ function LeaveManagementContent() {
       setEmployees(employeesRes.employees || []);
     } catch (err: any) {
       console.error('Error fetching leave data:', err);
+      const errorMessage = err?.response?.data?.message || err?.message || 'Failed to fetch leave data. Please check if the backend is running.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -492,6 +496,22 @@ function LeaveManagementContent() {
         <h1 className="text-2xl font-bold text-gray-800">Leave Management</h1>
         <p className="text-gray-600 mt-1">Manage employee leave requests and balances</p>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
+          <span className="flex items-center space-x-2">
+            <XCircle className="h-5 w-5" />
+            <span>{error}</span>
+          </span>
+          <button
+            onClick={() => setError(null)}
+            className="text-red-700 hover:text-red-900"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
