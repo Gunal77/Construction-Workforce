@@ -1,14 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  output: 'export',
+  images: {
+    unoptimized: true,
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Don't use static export - we need server functions
-  output: undefined,
+  trailingSlash: true,
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
