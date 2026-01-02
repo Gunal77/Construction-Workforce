@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { leaveAPI, employeesAPI, LeaveRequest, LeaveType, LeaveBalance } from '@/lib/api';
 import Card from '@/components/Card';
@@ -11,7 +11,7 @@ import { Calendar, Plus, CheckCircle2, XCircle, Clock, Download, FileSpreadsheet
 import Modal from '@/components/Modal';
 import Pagination from '@/components/Pagination';
 
-export default function LeaveManagementPage() {
+function LeaveManagementContent() {
   const searchParams = useSearchParams();
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
@@ -945,6 +945,18 @@ export default function LeaveManagementPage() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+export default function LeaveManagementPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-64">
+        <div className="text-gray-500">Loading leave management...</div>
+      </div>
+    }>
+      <LeaveManagementContent />
+    </Suspense>
   );
 }
 
