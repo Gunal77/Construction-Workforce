@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const multer = require('multer');
 const env = require('./config/env');
 const { connectMongoDB, isConnected } = require('./config/mongodb');
@@ -28,6 +29,15 @@ const clientSupervisorsRoutes = require('./routes/clientSupervisors');
 const fileRoutes = require('./routes/fileRoutes');
 
 const app = express();
+
+// CORS configuration
+const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000';
+app.use(cors({
+  origin: corsOrigin,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
